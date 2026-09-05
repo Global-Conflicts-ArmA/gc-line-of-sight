@@ -1,0 +1,8 @@
+GameProject {
+ ID "GC_LineOfSight"
+ GUID "6A4AF7AA127CC8A1"
+ TITLE "GC Line of Sight"
+ Dependencies {
+  "58D0FB3206B6F859"
+ }
+}
