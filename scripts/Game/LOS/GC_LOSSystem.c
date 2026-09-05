@@ -55,25 +55,71 @@ class GC_LOSSystem : GameSystem
 			.SetLocation(WorldSystemLocation.Client)
 	}
 	
-	protected void Init()
+	override void OnInit()
 	{
+		super.OnInit();
+		
+		Enable(false);
+		
 		m_MapEntity = SCR_MapEntity.GetMapInstance();
-		
-		if (!m_MapEntity)
-			return;
-		
 		m_MapEntity.GetOnMapOpen().Insert(OnMapOpen);
 		m_MapEntity.GetOnMapClose().Insert(OnMapClose);
+		
+		SCR_ChatPanelManager chatPanelManager = SCR_ChatPanelManager.GetInstance();
+		if (!chatPanelManager)
+			return;
+		
+		chatPanelManager.GetCommandInvoker("los-help").Insert(CommandDisplayHelp);
+		chatPanelManager.GetCommandInvoker("los-height").Insert(CommandChangeHeight);
+		
+	}
+	
+	//! Command: Display help
+	protected void CommandDisplayHelp(SCR_ChatPanel panel, string data)
+	{
+		SendInfoMessage("Adjust source and target height (relative to terrain) for trace: /los-height 1.5 0.75 (default values)");
+	}
+	
+	//! Command: Change source height
+	protected void CommandChangeHeight(SCR_ChatPanel panel, string data)
+	{
+		array<string> heights = {};
+		data.Split(" ", heights, true);
+		if (heights.Count() != 2)
+		{
+			SendInfoMessage("Wrong usage, expected 2 arguments like: /los-height 1.5 0.75");
+			return;
+		}
+		m_fSourceOffset = heights[0].ToFloat();
+		m_fTargetOffset = heights[1].ToFloat();
+		SendInfoMessage("Adjusted source and target height to " + m_fSourceOffset + " and " + m_fTargetOffset + "!");
+		
+		// todo: clear everything
+	}
+	
+	
+	//! Displays message in chat
+	static void SendInfoMessage(string message)
+	{
+		PlayerController pc = GetGame().GetPlayerController();
+		if (!pc)
+			return;
+		SCR_ChatComponent cc = SCR_ChatComponent.Cast(pc.FindComponent(SCR_ChatComponent));
+		if (!cc)
+			return;
+		cc.ShowMessage(message);
 	}
 	
 	protected void OnMapOpen(MapConfiguration mapConfig)
 	{
-		SetState(true);
+		Enable(true);
 	}	
 	
 	protected void OnMapClose(MapConfiguration mapConfig)
 	{
-		SetState(false);
+		m_mCells.Clear();
+		m_aTraceQueue.Clear();
+		Enable(false);
 	}
 
 	void UpdateAroundCursor(float cursorX, float cursorZ)
@@ -237,14 +283,6 @@ class GC_LOSSystem : GameSystem
 		
 		m_mCells.Clear();
 		m_aTraceQueue.Clear();
-		m_MapEntity = SCR_MapEntity.GetMapInstance();
 		Enable(true);
-	}
-	
-	void SetState(bool enabled)
-	{
-		Enable(enabled);
-		
-		m_mCells.Clear();
 	}
 }

@@ -20,8 +20,6 @@ class GC_LOSCheckerUI : SCR_MapUIBaseComponent
 	{
 		super.Init();
 		
-		Print("GC | Init");
-		
 		SCR_MapToolMenuUI toolMenu = SCR_MapToolMenuUI.Cast(m_MapEntity.GetMapUIComponent(SCR_MapToolMenuUI));
 		if (!toolMenu)
 			return;
