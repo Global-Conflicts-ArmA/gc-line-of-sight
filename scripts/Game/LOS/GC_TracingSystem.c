@@ -12,7 +12,7 @@ class GC_TracingSystem : GameSystem
 	protected ref array<ref PolygonDrawCommand> m_aDrawCommands = null;
 
 	//! Node queue
-	protected ref GC_NodeQueue m_NodeQueue = new GC_NodeQueue();
+	protected ref GC_SimpleQueue<GC_QuadNode> m_NodeQueue = new GC_SimpleQueue<GC_QuadNode>();
 
 	
 	protected int m_iMaintenanceBudget = 1000;
@@ -78,8 +78,7 @@ class GC_TracingSystem : GameSystem
 		bool needUpdate = false;
 		
 		 // could also save this on the class and process it across frames
-		int loadLevel = 5;
-		int viewLevel = 4;
+		int intendedLevel = 5;
 		int frameCost = 0;
 		bool mode = false;
 
@@ -96,106 +95,81 @@ class GC_TracingSystem : GameSystem
 		while (node && frameCost < m_iMaintenanceBudget)
 		{
 			frameCost += 1;
-			bool load = node.m_iLevel < loadLevel;
-			bool view = node.m_iLevel < viewLevel;
+			bool levelReached = node.m_iLevel >= intendedLevel;
 			bool intersection; //GC_TracingHelper.BboxIntersects(viewMin, viewMax, node.m_Min, node.m_Max);
-
-			// if it should not be loaded, then ensure delete children (and activate itself instead if i am in view). return.
-			// if simply outside of map view, also ensure delete children but don't activate itself. return.
-			// if simply outside of view level, ensure load children and that they are deactivated. enqueue them. return.
-
-			//maybe only activate nodes without existing children because they might be active
-			if (!load)
+			bool hasChildren = 0 > node.m_iActiveIndex;
+			
+			
+			if (levelReached || !intersection)
 			{
-				if (node.m_Q1)
+				// null + deactivate children, make self active
+				if (hasChildren)
 				{
-
+					DeactivateChildren(node);
+					node.m_Q1 = null;
+					node.m_Q2 = null;
+					node.m_Q3 = null;
+					node.m_Q4 = null;
+					ActivateNode(node);
 				}
 			}
-
-
-			// maintain tasks: load/keep/delete, activate/keep/deactivate, enqueue/don't
-
-			if (load)
+			else
 			{
-				if (intersection)
+				if (!hasChildren)
 				{
-					// ensure children exist, schedule exploration
-					if (!node.m_Q1)
-					{
-						frameCost += m_iSubdivCost;
-						node.m_Q1 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
-						node.m_Q2 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
-						node.m_Q3 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
-						node.m_Q4 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
-					}
-					m_NodeQueue.Enqueue(node.m_Q1);
-					m_NodeQueue.Enqueue(node.m_Q2);
-					m_NodeQueue.Enqueue(node.m_Q3);
-					m_NodeQueue.Enqueue(node.m_Q4);
-
-					// now, if also within view level, ensure they are active and i am inactive
-					if (view)
-					{
-						DeactivateNode(node);
-						ActivateNode(node.m_Q1);
-						ActivateNode(node.m_Q2);
-						ActivateNode(node.m_Q3);
-						ActivateNode(node.m_Q4);
-					}
-				}
-			}
-			else if (false)
-			{
-				DeactivateNode(node.m_Q1);
-				DeactivateNode(node.m_Q2);
-				DeactivateNode(node.m_Q3);
-				DeactivateNode(node.m_Q4);
-			}
-			
-			
-			
-			if (false) //GC_TracingHelper.BboxIntersects(viewMin, viewMax, node.m_Min, node.m_Max)) // if needed, create children / ensure exist
-			{
-				if (!node.m_Q1)
-				{
+					// create and activate children, deactivate self
 					frameCost += m_iSubdivCost;
 					node.m_Q1 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
 					node.m_Q2 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
 					node.m_Q3 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
 					node.m_Q4 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
+					DeactivateNode(node);
+					ActivateNode(node.m_Q1);
+					ActivateNode(node.m_Q2);
+					ActivateNode(node.m_Q3);
+					ActivateNode(node.m_Q4);
 				}
+				// enqueue children
 				m_NodeQueue.Enqueue(node.m_Q1);
 				m_NodeQueue.Enqueue(node.m_Q2);
 				m_NodeQueue.Enqueue(node.m_Q3);
 				m_NodeQueue.Enqueue(node.m_Q4);
-				// activate, deactivate parent node (if also within view level)
 			}
-			else if (node.m_Q1)	// if exist but out of view or not within load level, delete
-			{
-				DeactivateNode(node.m_Q1);
-				DeactivateNode(node.m_Q2);
-				DeactivateNode(node.m_Q3);
-				DeactivateNode(node.m_Q4);
-			}
-
 			
 			node = m_NodeQueue.Deque();
-
-			// check if current node has view intersection and further subdivision is required (load level)
-			// 	if not, null children (if not null already)
-			// 	if yes, create q1,q2,q3,q4 and trace them (unless they were already, or trace limit is reached)
-			// 		then enqueue these nodes
-			
-			
-			// current node does trace children so it can immediately activate them
-			// so basically, this means: if current node is active and has children within view level, activate them instead
-			// if current node is not active and has children that are outside of view level and active, make self active
-			// this has the problem, how do i pass activity back up reliably? need to delete recursively probably
 			
 		}
-
+		
 		return needUpdate;
+
+		// check if current node has view intersection and further subdivision is required (level)
+		// 	if not, null children and make self active (if not null already). still need to deactivate them though
+		// 	if yes, create q1,q2,q3,q4 and trace them (unless they were already, or trace limit is reached) then activate them and deactivate self
+		// 		then enqueue these nodes
+			
+	}
+	
+	void DeactivateChildren(GC_QuadNode node)
+	{
+		SCR_Stack<GC_QuadNode> nodeStack = new SCR_Stack<GC_QuadNode>;
+		nodeStack.Push(node.m_Q1);
+		nodeStack.Push(node.m_Q2);
+		nodeStack.Push(node.m_Q3);
+		nodeStack.Push(node.m_Q4);
+		
+		while (!nodeStack.IsEmpty())
+		{
+			node = nodeStack.Pop();
+			if (node.m_Q1)
+			{
+				nodeStack.Push(node.m_Q1);
+				nodeStack.Push(node.m_Q2);
+				nodeStack.Push(node.m_Q3);
+				nodeStack.Push(node.m_Q4);
+			}
+			if (node.m_iActiveIndex >= 0)
+				DeactivateNode(node);
+		}
 	}
 
 	void DeactivateNode(GC_QuadNode node)
@@ -230,17 +204,9 @@ class GC_TracingSystem : GameSystem
 	}
 	
 	
-	// i think making it delta based is a good idea
-	// i. e. keep track of last map view bbox, then on map change run a traversal deleting (old AND not new) and creating (new AND not old)
-	// actually this is not really necessary because during traversal we can just skip 
-
-	// i think i could also merge stage 2 into stage 1, this way 1 traversal is enough
 
 	// how to i make sure to not regenerate all draw commands every time
 
-	// could make selective changes to activenodes by measuring bounding box change since last traversal, turning that into delta boxes
-	// and then simply finding boxes that fall within the delta boxes (fully for removal, partially for addition
-	
 	// in case of level change, need to traverse the entire tree, in case of map move, only the delta areas
 	// when traversing the tree, and arrived at the final level, could add the nodes to drawcommands directly (or remove directly when creating children)
 	// removal can be done via a draw commands array index saved on the node itself (need to change swapback index too)

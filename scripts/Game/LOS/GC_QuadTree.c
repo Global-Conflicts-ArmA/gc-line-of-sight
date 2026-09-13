@@ -1,6 +1,9 @@
 class GC_QuadNode
 {
-	protected int m_color;
+	protected int m_iColor;
+	
+	protected int m_iEntsTraces;
+	protected int m_iTerrTraces;
 
 	//! Node bounds
 	int m_iX1;
@@ -28,15 +31,12 @@ class GC_QuadNode
 		
 		BaseWorld world = GetGame().GetWorld();
 		
-		if (!colorMode)
-		{
-			// perform 4 visibility traces
-			int visCount = GC_TracingHelper.SightTrace(world, fromPos, toPos,TraceFlags.ENTS, EPhysicsLayerDefs.ViewGeometry); // does this capture terrain?
-		}
-		else
-		{
-			// perform 4 vis and 4 terrain traces, then blend between red and orange multiplied by brightness
-		}
+		// 4 of these, with toPos Y set to terr offset
+		m_iTerrTraces += GC_TracingHelper.SightTrace(world, fromPos, toPos, TraceFlags.WORLD, EPhysicsLayerDefs.Terrain); // can also trace WORLD & ENTS but WORLD is very cheap anyway
+		m_iEntsTraces += GC_TracingHelper.SightTrace(world, fromPos, toPos, TraceFlags.ENTS, EPhysicsLayerDefs.ViewGeometry);
+		
+		
+		
 		
 		/*
 		if (!GC_TracingHelper.SightTrace(world, fromPos, toPos,TraceFlags.WORLD, EPhysicsLayerDefs.Terrain))
@@ -72,14 +72,14 @@ class GC_QuadNode
 	}
 }
 
-class GC_NodeQueue
+class GC_SimpleQueue<Class T>
 {
-	protected ref GC_QueueElement m_Start;
-	protected GC_QueueElement m_End;
+	protected ref GC_QueueElement<T> m_Start;
+	protected GC_QueueElement<T> m_End;
 
-	void Enqueue(GC_QuadNode node)
+	void Enqueue(T item)
 	{
-		GC_QueueElement element = new GC_QueueElement(node);
+		GC_QueueElement<T> element = new GC_QueueElement<T>(item);
 		if (m_Start)
 		{
 			m_End.m_Next = element;
@@ -92,17 +92,17 @@ class GC_NodeQueue
 		}
 	}
 
-	GC_QuadNode Deque()
+	T Deque()
 	{
-		GC_QuadNode node;
+		T item;
 
 		if (m_Start)
 		{
-			node = m_Start.m_Data;
+			item = m_Start.m_Item;
 			m_Start = m_Start.m_Next;
 		}
 
-		return node;
+		return item;
 	}
 
 	bool IsEmpty()
@@ -117,13 +117,13 @@ class GC_NodeQueue
 	}
 }
 
-class GC_QueueElement
+class GC_QueueElement<Class T>
 {
-	ref GC_QueueElement m_Next;
-	GC_QuadNode m_Data;
+	ref GC_QueueElement<T> m_Next;
+	T m_Item;
 
-	void GC_QueueElement(GC_QuadNode node)
+	void GC_QueueElement(T item)
 	{
-		m_Data = node;
+		m_Item = item;
 	}
 }
