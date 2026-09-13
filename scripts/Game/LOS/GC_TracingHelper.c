@@ -23,12 +23,8 @@ class GC_TracingHelper
 	{
 	}
 
-	static bool VisTrace(vector fromPos, vector toPos, TraceFlags flags, EPhysicsLayerDefs layer, float tolerance = 1.0)
+	static bool SightTrace(BaseWorld world, vector fromPos, vector toPos, TraceFlags flags, EPhysicsLayerDefs layer, float tolerance = 1.0)
 	{
-		BaseWorld world = GetGame().GetWorld();
-		if (!world)
-			return false;
-		
 		TraceParam trace = new TraceParam();
 		trace.Start = fromPos;
 		trace.End = toPos;

@@ -1,7 +1,6 @@
 class GC_QuadNode
 {
-	//! Result of the line trace
-	GC_SightTraceResult m_Trace;
+	protected int m_color;
 
 	//! Node bounds
 	int m_iX1;
@@ -15,26 +14,52 @@ class GC_QuadNode
 	//! Index in list of active nodes
 	int m_iActiveIndex = -1;
 	
-	GC_QuadNode m_Q1;
-	GC_QuadNode m_Q2;
-	GC_QuadNode m_Q3;
-	GC_QuadNode m_Q4;
+	ref GC_QuadNode m_Q1;
+	ref GC_QuadNode m_Q2;
+	ref GC_QuadNode m_Q3;
+	ref GC_QuadNode m_Q4;
 	
-	PolygonDrawCommand m_DrawCommand;
+	ref PolygonDrawCommand m_DrawCommand;
 
 
-	void GC_QuadNode(vector fromPos, vector toOffset)
+	void GC_QuadNode(vector fromPos, float toOffset, bool colorMode)
 	{
 		vector toPos; // center of quad node, with y = Get terrain y + toOffset
-		if (!TILW_TracingHelper.VisTrace(fromPos, toPos,TraceFlags.WORLD, EPhysicsLayerDefs.Terrain))
-			m_Trace = GC_SightTraceResult.Terrain;
-		else if (!HasVisibility(fromPos, toPos, TraceFlags.ENTS, EPhysicsLayerDefs.ViewGeometry))
-			m_Trace = GC_SightTraceResult.ViewGeo;
+		
+		BaseWorld world = GetGame().GetWorld();
+		
+		if (!colorMode)
+		{
+			// perform 4 visibility traces
+			int visCount = GC_TracingHelper.SightTrace(world, fromPos, toPos,TraceFlags.ENTS, EPhysicsLayerDefs.ViewGeometry); // does this capture terrain?
+		}
 		else
-			m_Trace = GC_SightTraceResult.Free;
+		{
+			// perform 4 vis and 4 terrain traces, then blend between red and orange multiplied by brightness
+		}
+		
+		/*
+		if (!GC_TracingHelper.SightTrace(world, fromPos, toPos,TraceFlags.WORLD, EPhysicsLayerDefs.Terrain))
+			//m_Trace = GC_SightTraceResult.Terrain;
+		else if (!HasVisibility(world, fromPos, toPos, TraceFlags.ENTS, EPhysicsLayerDefs.ViewGeometry))
+			///m_Trace = GC_SightTraceResult.ViewGeo;
+		else
+			//m_Trace = GC_SightTraceResult.Free;
+		*/
 
 
 		// also set node bounds and level here
+	}
+	
+	protected GC_SightTraceResult PerformTrace(BaseWorld world, vector fromPos, vector toOffset)
+	{
+		vector toPos; // center of quad node, with y = Get terrain y + toOffset
+		if (!GC_TracingHelper.SightTrace(world, fromPos, toPos,TraceFlags.WORLD, EPhysicsLayerDefs.Terrain))
+			return GC_SightTraceResult.Terrain;
+		else if (!GC_TracingHelper.SightTrace(world, fromPos, toPos, TraceFlags.ENTS, EPhysicsLayerDefs.ViewGeometry))
+			return GC_SightTraceResult.ViewGeo;
+		else
+			return GC_SightTraceResult.Free;
 	}
 
 	void UpdateCommand() // receive map view. also needs own intended bounds, either passed or local knowledge
@@ -99,6 +124,6 @@ class GC_QueueElement
 
 	void GC_QueueElement(GC_QuadNode node)
 	{
-		m_Data = data;
+		m_Data = node;
 	}
 }
