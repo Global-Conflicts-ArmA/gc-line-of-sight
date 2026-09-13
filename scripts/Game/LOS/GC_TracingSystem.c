@@ -10,8 +10,13 @@ class GC_TracingSystem : GameSystem
 	
 	//! Array of draw commands, rebuilt frequently
 	protected ref array<ref PolygonDrawCommand> m_aDrawCommands = null;
+
+	//! Node queue
+	GC_NodeQueue m_NodeQueue = new GC_NodeQueue();
+
 	
-	protected int m_iTraceBudget = 10;
+	protected int m_iMaintenanceBudget = 1000;
+	protected int m_iSubdivCost = 100;
 	
 	
 	
@@ -44,40 +49,188 @@ class GC_TracingSystem : GameSystem
 		float currentZoom = m_MapEntity.GetCurrentZoom();
 		
 		bool mapChange = (m_vPreviousPan != currentPan) || (m_fPreviousZoom != currentZoom);
+
+		// must always freshly redo tree when map changed, but can save progress and continue if map did not change
 		
-		if (!mapChange)
-			return;
+		if (mapChange) // change, restart maintenance
+		{
+			m_NodeQueue.Clear();
+			MaintainTree();
+			UpdateCommands();
+		}
+		else if (!m_NodeQueue.IsEmpty()  && MaintainTree()) // no change, but not done maintaining
+		{
+			UpdateCommands();
+		}
 		
 		m_vPreviousPan = currentPan;
 		m_fPreviousZoom = currentZoom;
-		
+
 	}
 	
-	protected void MaintainTree()
+	//! Maintains the quad tree, removing obsolete nodes and adding required nodes. Returns whether a command update it needed.
+	protected bool MaintainTree()
 	{
-		array<GC_QuadNode> nodeQueue = { m_QuadTree };
-		int queueIndex = 0;
+		bool needUpdate = false;
 		
-		int traceCount = 0;
-		// make sure exists and traced
-		int intendedLevel = 5;
-		for (int i = 0; i < intendedLevel && nodeQueue.Count() > queueIndex; i++)
+		 // could also save this on the class and process it across frames
+		int loadLevel = 5;
+		int displayLevel = 4;
+		int frameCost = 0;
+
+		if (!m_QuadTree) // only do this if the queue is empty, or maybe do this elsewhere entirely
 		{
+			m_QuadTree = new GC_QuadNode(m_vSourcePos, m_fTargetOffset);
+			// how do i ensure the root node exists? i guess i could just always make sure it's initialized here after running global box intersection
+			// and other requirements from the loop
+			// could also create it elsewhere and make sure it's never deleted
+		}
+		m_NodeQueue.Enqueue(m_QuadTree);
+
+		GC_QuadNode node = m_NodeQueue.Deque();
+		while (node && frameCost < m_iMaintenanceBudget)
+		{
+			frameCost += 1;
+			bool load = node.m_Level < loadLevel;
+			bool view = node.m_Level < viewLevel;
+			bool intersection = GC_TracingHelper.BboxIntersects(viewMin, viewMax, node.m_Min, node.m_Max);
+
+			// if it should not be loaded, then ensure delete children (and activate itself instead if i am in view). return.
+			// if simply outside of map view, also ensure delete children but don't activate itself. return.
+			// if simply outside of view level, ensure load children and that they are deactivated. enqueue them. return.
+
+			//maybe only activate nodes without existing children because they might be active
+			if (!load)
+			{
+				if (node.m_01)
+				{
+
+				}
+			}
+
+
+			// maintain tasks: load/keep/delete, activate/keep/deactivate, enqueue/don't
+
+			if (load)
+			{
+				if (intersection)
+				{
+					// ensure children exist, schedule exploration
+					if (!node.m_01)
+					{
+						frameCost += m_iSubdivCost;
+						node.m_Q1 = new QuadNode(m_vSourcePos, m_fTargetOffset);
+						node.m_Q2 = new QuadNode(m_vSourcePos, m_fTargetOffset);
+						node.m_Q3 = new QuadNode(m_vSourcePos, m_fTargetOffset);
+						node.m_Q4 = new QuadNode(m_vSourcePos, m_fTargetOffset);
+					}
+					m_NodeQueue.Enqueue(node.m_Q1);
+					m_NodeQueue.Enqueue(node.m_Q2);
+					m_NodeQueue.Enqueue(node.m_Q3);
+					m_NodeQueue.Enqueue(node.m_Q4);
+
+					// now, if also within view level, ensure they are active and i am inactive
+					if (view)
+					{
+						DeactivateNode(node);
+						ActivateNode(node.m_Q1);
+						ActivateNode(node.m_Q2);
+						ActivateNode(node.m_Q3);
+						ActivateNode(node.m_Q4);
+					}
+				}
+			}
+			else if ()
+			{
+				RemoveActiveNode(node.m_01);
+				RemoveActiveNode(node.m_02);
+				RemoveActiveNode(node.m_03);
+				RemoveActiveNode(node.m_04);
+			}
+			
+			
+			
+			 && GC_TracingHelper.BboxIntersects(viewMin, viewMax, node.m_Min, node.m_Max)) // if needed, create children / ensure exist
+			{
+				if (!node.m_01)
+				{
+					frameCost += m_iSubdivCost;
+					node.m_Q1 = new QuadNode(m_vSourcePos, m_fTargetOffset);
+					node.m_Q2 = new QuadNode(m_vSourcePos, m_fTargetOffset);
+					node.m_Q3 = new QuadNode(m_vSourcePos, m_fTargetOffset);
+					node.m_Q4 = new QuadNode(m_vSourcePos, m_fTargetOffset);
+				}
+				m_NodeQueue.Enqueue(node.m_Q1);
+				m_NodeQueue.Enqueue(node.m_Q2);
+				m_NodeQueue.Enqueue(node.m_Q3);
+				m_NodeQueue.Enqueue(node.m_Q4);
+				// activate, deactivate parent node (if also within view level)
+			}
+			else if (node.m_01)	// if exist but out of view or not within load level, delete
+			{
+				RemoveActiveNode(node.m_01);
+				RemoveActiveNode(node.m_02);
+				RemoveActiveNode(node.m_03);
+				RemoveActiveNode(node.m_04);
+			}
+
+			
+			GC_QuadNode node = m_NodeQueue.Deque();
+
 			// check if current node is in view and further subdivision is required (level)
 			// if not, null children (if not null already)
 			// if yes, create q1,q2,q3,q4 and trace them (unless they were already, or trace limit is reached)
 			// 	then enqueue these nodes
-			
+		}
+
+		return needUpdate;
+	}
+
+	void DeactivateNode(GC_QuadNode node)
+	{
+		int index = node.m_iActiveIndex;
+		if (index >= 0)
+		{
+			node.m_iActiveIndex = -1;
+			m_ActiveNodes.Remove(index);
+			if (index < m_ActiveNodes.Count())
+				m_ActiveNodes[index].m_iActiveIndex = index;
 		}
 	}
-	
-	protected void DecideActive()
+
+	void ActivateNode(GC_QuadNode node)
 	{
+		if (node.m_iActiveIndex < 0)
+		{
+			m_ActiveNodes.Insert(node);
+			node.m_iActiveIndex = m_ActiveNodes.Count() - 1;
+		}
 	}
-	
+
 	protected void UpdateCommands()
 	{
+		foreach (GC_QuadNode node : m_ActiveNodes)
+		{
+			node.UpdateCommand(); // pass current map view
+		}
+
+		// also update source marker maybe (or possibly do this elsewhere)
 	}
+
+	// i think i could also merge stage 2 into stage 1, this way 1 traversal is enough
+
+	// how to i make sure to not regenerate all draw commands every time
+
+	// could make selective changes to activenodes by measuring bounding box change since last traversal, turning that into delta boxes
+	// and then simply finding boxes that fall within the delta boxes (fully for removal, partially for addition
+	
+	// in case of level change, need to traverse the entire tree, in case of map move, only the delta areas
+	// when traversing the tree, and arrived at the final level, could add the nodes to drawcommands directly (or remove directly when creating children)
+	// removal can be done via a draw commands array index saved on the node itself (need to change swapback index too)
+
+	// i should probably make a difference between loadLevel and displayLevel maybe
+
+	// as a prerequisite of stage 1, check if the change was even significant enough maybe
 	
 	// task 1: maintain an adequate tree for the current map view
 	// - receives current map view BB and zoom level
@@ -96,4 +249,10 @@ class GC_TracingSystem : GameSystem
 	// - maybe avoid world coords entirely and only go with map coords
 	
 	// - quadnode has methods for creating and updating draw command based on current map view. maybe even stored directly on the node
+
+
+	// question: do i want to traverse the entire quadtree every frame? could have a shared budget between nodes and traces then stop
+	// main question, is the amount of nodes to traverse so great that it warrants the extra cost of keeping track of node visits
+
+
 }
