@@ -46,19 +46,27 @@ class GC_TracingSystem : GameSystem
 		m_MapEntity = SCR_MapEntity.GetMapInstance();
 	}
 	
-	protected void SetActive(bool active)
+	void ActivateTool(float worldX, float worldY, float sourceOffset, float targetOffset)
 	{
-		if (active)
-		{
-			Init();
-			
-			Enable(true);
-		}
-		else
-		{
-			Reset();
-			Enable(false);
-		}
+		m_vSourcePos = Vector(worldX, Math.Max(0, GetGame().GetWorld().GetSurfaceY(worldX, worldY)) + sourceOffset, worldY);
+		m_fTargetOffset = targetOffset;
+		
+		Init();
+		
+		
+		Enable(true);
+	}
+	
+	//! Tool reset (tool or map is closed etc)
+	protected void DeactivateTool()
+	{
+		m_NodeQueue.Clear();
+		m_QuadTree = null;
+		m_aActiveNodes.Clear();
+		m_wCanvasWidget = null;
+		m_aDrawCommands = null;
+		
+		Enable(false);
 	}
 	
 	//! Tool init (tool is opened etc)
@@ -77,16 +85,6 @@ class GC_TracingSystem : GameSystem
 		m_wCanvasWidget = CanvasWidget.Cast(GetGame().GetWorkspace().CreateWidgets("{F928661E727CC638}UI/Map/GC_LOSCanvas.layout", mapFrame));
 		m_aDrawCommands = {};
 		m_wCanvasWidget.SetDrawCommands(m_aDrawCommands);
-	}
-	
-	//! Tool reset (tool or map is closed etc)
-	protected void Reset()
-	{
-		m_NodeQueue.Clear();
-		m_QuadTree = null;
-		m_aActiveNodes.Clear();
-		m_wCanvasWidget = null;
-		m_aDrawCommands = null;
 	}
 	
 	protected vector m_vPreviousPan;
