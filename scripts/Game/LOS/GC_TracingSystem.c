@@ -6,13 +6,16 @@ class GC_TracingSystem : GameSystem
 	protected ref GC_QuadNode m_QuadTree;
 	
 	//! Nodes that should have draw commands
-	protected ref array<GC_QuadNode> m_ActiveNodes;
+	protected ref array<GC_QuadNode> m_aActiveNodes;
 	
 	//! Array of draw commands, rebuilt frequently
 	protected ref array<ref PolygonDrawCommand> m_aDrawCommands = null;
 
 	//! Node queue
 	protected ref GC_SimpleQueue<GC_QuadNode> m_NodeQueue = new GC_SimpleQueue<GC_QuadNode>();
+	
+	//! Color mode vs. shade mode
+	protected bool m_bColorMode = false;
 
 	
 	protected int m_iMaintenanceBudget = 1000;
@@ -54,7 +57,14 @@ class GC_TracingSystem : GameSystem
 		
 		bool mapChange = (m_vPreviousPan != currentPan) || (m_fPreviousZoom != currentZoom);
 
-		// must always freshly redo tree when map changed, but can save progress and continue if map did not change
+		
+		// tree states:
+		// - no map change, queue empty => do nothing
+		// - no map change, queue not empty => keep working on it (and update new or all commands)
+		// - map change => clear node queue (?) then do maintenance, finally update all commands
+		
+		// should we clear the queue on map change?
+		// 
 		
 		if (mapChange) // change, restart maintenance
 		{
@@ -62,7 +72,7 @@ class GC_TracingSystem : GameSystem
 			MaintainTree();
 			UpdateCommands();
 		}
-		else if (!m_NodeQueue.IsEmpty()  && MaintainTree()) // no change, but not done maintaining
+		else if (MaintainTree()) // no map change, but maintenance progress
 		{
 			UpdateCommands();
 		}
@@ -72,32 +82,46 @@ class GC_TracingSystem : GameSystem
 
 	}
 	
+	protected void InitTree()
+	{
+		if (!m_QuadTree)
+		{
+			vector offset = m_MapEntity.Offset();
+			vector size = m_MapEntity.Size();
+			m_QuadTree = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, 0, offset[0], offset[0] + size[0], offset[2], offset[2] + size[2]);
+		}
+	}
+	
 	//! Maintains the quad tree, removing obsolete nodes and adding required nodes. Returns whether a command update it needed.
 	protected bool MaintainTree()
 	{
 		bool needUpdate = false;
 		
-		 // could also save this on the class and process it across frames
+		// if these aren't the same as previous frame, re-start queue
 		int intendedLevel = 5;
-		int frameCost = 0;
-		bool mode = false;
-
-		if (!m_QuadTree) // only do this if the queue is empty, or maybe do this elsewhere entirely
+		
+		if (false)
 		{
-			m_QuadTree = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
-			// how do i ensure the root node exists? i guess i could just always make sure it's initialized here after running global box intersection
-			// and other requirements from the loop
-			// could also create it elsewhere and make sure it's never deleted
+			m_NodeQueue.Clear();
+			m_NodeQueue.Enqueue(m_QuadTree);
 		}
-		m_NodeQueue.Enqueue(m_QuadTree);
+		
+		int frameCost = 0;
+		
+		vector frameMin, frameMax;
+		m_MapEntity.GetMapVisibleFrame(frameMin, frameMax);
+		const float frameX1 = frameMin[0];
+		const float frameX2 = frameMax[0];
+		const float frameY1 = frameMin[2];
+		const float frameY2 = frameMax[2];
 
 		GC_QuadNode node = m_NodeQueue.Deque();
 		while (node && frameCost < m_iMaintenanceBudget)
 		{
 			frameCost += 1;
-			bool levelReached = node.m_iLevel >= intendedLevel;
-			bool intersection; //GC_TracingHelper.BboxIntersects(viewMin, viewMax, node.m_Min, node.m_Max);
-			bool hasChildren = 0 > node.m_iActiveIndex;
+			const bool levelReached = node.m_iLevel >= intendedLevel;
+			const bool intersection = GC_TracingHelper.BboxIntersects(frameX1, frameX2, frameY1, frameY2, node.m_fX1, node.m_fX2, node.m_fY1, node.m_fY2);
+			const bool hasChildren = 0 > node.m_iActiveIndex;
 			
 			
 			if (levelReached || !intersection)
@@ -119,10 +143,18 @@ class GC_TracingSystem : GameSystem
 				{
 					// create and activate children, deactivate self
 					frameCost += m_iSubdivCost;
-					node.m_Q1 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
-					node.m_Q2 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
-					node.m_Q3 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
-					node.m_Q4 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, mode);
+					
+					float midX = node.m_fX1 + (node.m_fX2 - node.m_fX1) / 2;
+					float midY = node.m_fY1 + (node.m_fY2 - node.m_fY1) / 2;
+					
+					//  II   I
+					// III  IV
+					
+					node.m_Q1 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, node.m_iLevel + 1, midX, node.m_fX2, midY, node.m_fY2);
+					node.m_Q2 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, node.m_iLevel + 1, node.m_fX1, midX, midY, node.m_fY2);
+					node.m_Q3 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, node.m_iLevel + 1, node.m_fX1, midX, node.m_fY1, midY);
+					node.m_Q4 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, node.m_iLevel + 1, midX, node.m_fX2, node.m_fY1, midY);
+					
 					DeactivateNode(node);
 					ActivateNode(node.m_Q1);
 					ActivateNode(node.m_Q2);
@@ -178,30 +210,36 @@ class GC_TracingSystem : GameSystem
 		if (index >= 0)
 		{
 			node.m_iActiveIndex = -1;
-			m_ActiveNodes.Remove(index);
-			if (index < m_ActiveNodes.Count())
-				m_ActiveNodes[index].m_iActiveIndex = index;
+			m_aDrawCommands.Remove(index);
+			m_aActiveNodes.Remove(index);
+			if (index < m_aActiveNodes.Count())
+				m_aActiveNodes[index].m_iActiveIndex = index;
 		}
 	}
 
 	void ActivateNode(GC_QuadNode node)
 	{
-		if (node.m_iActiveIndex < 0)
+		if (node.m_iActiveIndex < 0) // this if might be redundant
 		{
-			m_ActiveNodes.Insert(node);
-			node.m_iActiveIndex = m_ActiveNodes.Count() - 1;
+			m_aActiveNodes.Insert(node);
+			m_aDrawCommands.Insert(node.m_DrawCommand);
+			// if no map move update is scheduled this frame, maybe update command from here
+			
+			node.m_iActiveIndex = m_aActiveNodes.Count() - 1;
 		}
 	}
 
 	protected void UpdateCommands()
 	{
-		foreach (GC_QuadNode node : m_ActiveNodes)
+		foreach (GC_QuadNode node : m_aActiveNodes)
 		{
-			node.UpdateCommand(); // pass current map view
+			node.UpdateCommand(m_bColorMode, m_MapEntity); // pass current map view
 		}
 
 		// also update source marker maybe (or possibly do this elsewhere)
 	}
+	
+	// on node activation, add draw command to array. on deactivation, remove
 	
 	
 

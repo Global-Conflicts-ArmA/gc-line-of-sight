@@ -1,7 +1,7 @@
 class GC_TracingHelper
 {
 	//! Receives 2 bounding boxes and checks for intersection (2 must be greater than 1)
-	static bool BboxIntersects(int ax1, int ax2, int bx1, int bx2, int ay1, int ay2, int by1, int by2)
+	static bool BboxIntersects(int ax1, int ax2, int ay1, int ay2, int bx1, int bx2, int by1, int by2)
 	{
 
 		return ax2 > bx1 || ay2 > by1 || bx2 > ax1 || by2 > ay1;
@@ -23,7 +23,7 @@ class GC_TracingHelper
 	{
 	}
 
-	static bool SightTrace(BaseWorld world, vector fromPos, vector toPos, TraceFlags flags, EPhysicsLayerDefs layer, float tolerance = 1.0)
+	static bool SightBlocked(BaseWorld world, vector fromPos, vector toPos, TraceFlags flags, EPhysicsLayerDefs layer, float tolerance = 1.0)
 	{
 		TraceParam trace = new TraceParam();
 		trace.Start = fromPos;
@@ -34,6 +34,6 @@ class GC_TracingHelper
 		float frac = world.TraceMove(trace);
 		float dist = vector.Distance(trace.Start, trace.End);
 		
-		return (frac >= (dist - tolerance) / dist);
+		return (frac < (dist - tolerance) / dist);
 	}
 }

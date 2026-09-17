@@ -2,14 +2,14 @@ class GC_QuadNode
 {
 	protected int m_iColor;
 	
-	protected int m_iEntsTraces;
-	protected int m_iTerrTraces;
+	protected int m_iEntsBlocked;
+	protected int m_iTerrBlocked;
 
 	//! Node bounds
-	int m_iX1;
-	int m_iX2;
-	int m_iY1;
-	int m_iY2;
+	float m_fX1;
+	float m_fX2;
+	float m_fY1;
+	float m_fY2;
 
 	//! Node level
 	int m_iLevel;
@@ -25,50 +25,60 @@ class GC_QuadNode
 	ref PolygonDrawCommand m_DrawCommand;
 
 
-	void GC_QuadNode(vector fromPos, float toOffset, bool colorMode)
+	void GC_QuadNode(vector fromPos, float toOffset, int level, float x1, float x2, float y1, float y2)
 	{
-		vector toPos; // center of quad node, with y = Get terrain y + toOffset
+		m_iLevel = level;
+		m_fX1 = x1;
+		m_fX2 = x2;
+		m_fY1 = y1;
+		m_fY2 = y2;
 		
-		BaseWorld world = GetGame().GetWorld();
+		const BaseWorld world = GetGame().GetWorld();
 		
-		// 4 of these, with toPos Y set to terr offset
-		m_iTerrTraces += GC_TracingHelper.SightTrace(world, fromPos, toPos, TraceFlags.WORLD, EPhysicsLayerDefs.Terrain); // can also trace WORLD & ENTS but WORLD is very cheap anyway
-		m_iEntsTraces += GC_TracingHelper.SightTrace(world, fromPos, toPos, TraceFlags.ENTS, EPhysicsLayerDefs.ViewGeometry);
+		const float quarterX = (m_fX2 - m_fX1) / 4;
+		const float quarterY = (m_fY2 - m_fY1) / 4;
 		
-		
-		
-		
-		/*
-		if (!GC_TracingHelper.SightTrace(world, fromPos, toPos,TraceFlags.WORLD, EPhysicsLayerDefs.Terrain))
-			//m_Trace = GC_SightTraceResult.Terrain;
-		else if (!HasVisibility(world, fromPos, toPos, TraceFlags.ENTS, EPhysicsLayerDefs.ViewGeometry))
-			///m_Trace = GC_SightTraceResult.ViewGeo;
-		else
-			//m_Trace = GC_SightTraceResult.Free;
-		*/
-
-
-		// also set node bounds and level here
+		SingleTrace(world, fromPos, toOffset, m_fX2 - quarterX, m_fY2 - quarterY);
+		SingleTrace(world, fromPos, toOffset, m_fX1 + quarterX, m_fY2 - quarterY);
+		SingleTrace(world, fromPos, toOffset, m_fX1 + quarterX, m_fY1 + quarterY);
+		SingleTrace(world, fromPos, toOffset, m_fX2 - quarterX, m_fY1 + quarterY);
 	}
 	
-	protected GC_SightTraceResult PerformTrace(BaseWorld world, vector fromPos, vector toOffset)
+	protected void SingleTrace(BaseWorld world, vector fromPos, float toOffset, float to1, float to2)
 	{
-		vector toPos; // center of quad node, with y = Get terrain y + toOffset
-		if (!GC_TracingHelper.SightTrace(world, fromPos, toPos,TraceFlags.WORLD, EPhysicsLayerDefs.Terrain))
-			return GC_SightTraceResult.Terrain;
-		else if (!GC_TracingHelper.SightTrace(world, fromPos, toPos, TraceFlags.ENTS, EPhysicsLayerDefs.ViewGeometry))
-			return GC_SightTraceResult.ViewGeo;
-		else
-			return GC_SightTraceResult.Free;
+		const vector toPos = Vector(to1, Math.Max(0, world.GetSurfaceY(to1, to2)) + toOffset, to2);
+		if (GC_TracingHelper.SightBlocked(world, fromPos, toPos, TraceFlags.WORLD, EPhysicsLayerDefs.Terrain))
+			m_iTerrBlocked++;
+		else if (GC_TracingHelper.SightBlocked(world, fromPos, toPos, TraceFlags.ENTS, EPhysicsLayerDefs.ViewGeometry))
+			m_iEntsBlocked++;
 	}
+	
 
-	void UpdateCommand() // receive map view. also needs own intended bounds, either passed or local knowledge
-	{						// local knowledge MAY be preferable because updatecommand cannot pass it
+	void UpdateCommand(bool colorMode, SCR_MapEntity mapEntity)
+	{
 		if (!m_DrawCommand)
-		{
-			m_DrawCommand = new PolygonDrawCommand();
-			m_DrawCommand.m_iColor = 0; // set color based on m_Trace
-		}
+			CreateCommand(colorMode); // maybe i don't need to check this in loop, and just on init or if color changed
+		
+		int p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y;
+		mapEntity.WorldToScreen(m_fX2, m_fY2, p1x, p1y, true);
+		mapEntity.WorldToScreen(m_fX1, m_fY2, p2x, p2y, true);
+		mapEntity.WorldToScreen(m_fX1, m_fY1, p3x, p3y, true);
+		mapEntity.WorldToScreen(m_fX2, m_fY1, p4x, p4y, true);
+		
+		m_DrawCommand.m_Vertices = { p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y };
+	}
+	
+	void CreateCommand(bool colorMode)
+	{
+		m_DrawCommand = new PolygonDrawCommand();
+		const int anyBlocked = m_iTerrBlocked + m_iEntsBlocked;
+		
+		Color c;
+		if (!colorMode || anyBlocked == 0)
+			c = Color(0, 0, 0, anyBlocked * 0.125); // 0 alpha if none blocked, 0.5 alpha if all blocked
+		else
+			c = Color(1, m_iEntsBlocked / anyBlocked * 0.75, 0, anyBlocked * 0.125); // red 1, green 0 to 0.75, blue 0 => red to yellow gradient
+		m_DrawCommand.m_iColor = c.PackToInt();
 	}
 }
 
