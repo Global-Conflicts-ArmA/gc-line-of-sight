@@ -141,16 +141,6 @@ class GC_TracingSystem : GameSystem
 		}
 	}
 	
-	protected void InitTree()
-	{
-		if (!m_QuadTree)
-		{
-			vector offset = m_MapEntity.Offset();
-			vector size = m_MapEntity.Size();
-			m_QuadTree = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, 0, offset[0], offset[0] + size[0], offset[2], offset[2] + size[2]);
-		}
-	}
-	
 	//! Maintains the quad tree, removing obsolete nodes and adding required nodes.
 	protected void MaintainTree(bool restart)
 	{
