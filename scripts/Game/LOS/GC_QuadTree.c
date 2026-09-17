@@ -54,11 +54,8 @@ class GC_QuadNode
 	}
 	
 
-	void UpdateCommand(bool colorMode, SCR_MapEntity mapEntity)
+	void UpdateVertices(SCR_MapEntity mapEntity)
 	{
-		if (!m_DrawCommand)
-			CreateCommand(colorMode); // maybe i don't need to check this in loop, and just on init or if color changed
-		
 		int p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y;
 		mapEntity.WorldToScreen(m_fX2, m_fY2, p1x, p1y, true);
 		mapEntity.WorldToScreen(m_fX1, m_fY2, p2x, p2y, true);
@@ -71,6 +68,11 @@ class GC_QuadNode
 	void CreateCommand(bool colorMode)
 	{
 		m_DrawCommand = new PolygonDrawCommand();
+		UpdateColor(colorMode);
+	}
+	
+	void UpdateColor(bool colorMode)
+	{
 		const int anyBlocked = m_iTerrBlocked + m_iEntsBlocked;
 		
 		Color c;
@@ -78,6 +80,7 @@ class GC_QuadNode
 			c = Color(0, 0, 0, anyBlocked * 0.125); // 0 alpha if none blocked, 0.5 alpha if all blocked
 		else
 			c = Color(1, m_iEntsBlocked / anyBlocked * 0.75, 0, anyBlocked * 0.125); // red 1, green 0 to 0.75, blue 0 => red to yellow gradient
+		
 		m_DrawCommand.m_iColor = c.PackToInt();
 	}
 }

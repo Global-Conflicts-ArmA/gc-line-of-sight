@@ -2,6 +2,8 @@ class GC_TracingSystem : GameSystem
 {
 	protected SCR_MapEntity m_MapEntity;
 	
+	protected CanvasWidget m_wCanvasWidget;
+	
 	//! Root node of quad tree
 	protected ref GC_QuadNode m_QuadTree;
 	
@@ -9,7 +11,7 @@ class GC_TracingSystem : GameSystem
 	protected ref array<GC_QuadNode> m_aActiveNodes;
 	
 	//! Array of draw commands, rebuilt frequently
-	protected ref array<ref PolygonDrawCommand> m_aDrawCommands = null;
+	protected ref array<ref CanvasWidgetCommand> m_aDrawCommands = null;
 
 	//! Node queue
 	protected ref GC_SimpleQueue<GC_QuadNode> m_NodeQueue = new GC_SimpleQueue<GC_QuadNode>();
@@ -23,8 +25,6 @@ class GC_TracingSystem : GameSystem
 	
 	protected vector m_vSourcePos;
 	protected float m_fTargetOffset;
-	protected int m_iLevel;
-	
 	
 	
 	override static void InitInfo(WorldSystemInfo outInfo)
@@ -36,6 +36,7 @@ class GC_TracingSystem : GameSystem
 			.SetLocation(WorldSystemLocation.Client)
 	}
 	
+	//! Global init, even if the tool is not active yet
 	override void OnInit()
 	{
 		super.OnInit();
@@ -45,9 +46,54 @@ class GC_TracingSystem : GameSystem
 		m_MapEntity = SCR_MapEntity.GetMapInstance();
 	}
 	
+	protected void SetActive(bool active)
+	{
+		if (active)
+		{
+			Init();
+			
+			Enable(true);
+		}
+		else
+		{
+			Reset();
+			Enable(false);
+		}
+	}
+	
+	//! Tool init (tool is opened etc)
+	protected void Init()
+	{
+		vector offset = m_MapEntity.Offset();
+		vector size = m_MapEntity.Size();
+		m_QuadTree = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, 0, offset[0], offset[0] + size[0], offset[2], offset[2] + size[2]);
+		
+		Widget mapFrame = m_MapEntity.GetMapMenuRoot().FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME);
+		if (!mapFrame)
+			mapFrame = m_MapEntity.GetMapMenuRoot();
+		if (!mapFrame)
+			 return;
+		
+		m_wCanvasWidget = CanvasWidget.Cast(GetGame().GetWorkspace().CreateWidgets("{F928661E727CC638}UI/Map/GC_LOSCanvas.layout", mapFrame));
+		m_aDrawCommands = {};
+		m_wCanvasWidget.SetDrawCommands(m_aDrawCommands);
+	}
+	
+	//! Tool reset (tool or map is closed etc)
+	protected void Reset()
+	{
+		m_NodeQueue.Clear();
+		m_QuadTree = null;
+		m_aActiveNodes.Clear();
+		m_wCanvasWidget = null;
+		m_aDrawCommands = null;
+	}
+	
 	protected vector m_vPreviousPan;
 	protected float m_fPreviousZoom;
+	protected bool m_bMapChanged;
 	
+	//! Frame update event
 	override void OnUpdate(WorldSystemPoint point)
 	{
 		super.OnUpdate(point);
@@ -56,30 +102,43 @@ class GC_TracingSystem : GameSystem
 		float currentZoom = m_MapEntity.GetCurrentZoom();
 		
 		bool mapChange = (m_vPreviousPan != currentPan) || (m_fPreviousZoom != currentZoom);
+		
+		if (mapChange)
+			foreach (GC_QuadNode node : m_aActiveNodes)
+				node.UpdateVertices(m_MapEntity);
+		else if (m_bMapChanged)
+			MaintainTree(true);
+		else if (!m_NodeQueue.IsEmpty())
+			MaintainTree(false);
+		
+		m_vPreviousPan = currentPan;
+		m_fPreviousZoom = currentZoom;
+		m_bMapChanged = mapChange;
 
+	}
 		
 		// tree states:
 		// - no map change, queue empty => do nothing
 		// - no map change, queue not empty => keep working on it (and update new or all commands)
 		// - map change => clear node queue (?) then do maintenance, finally update all commands
 		
-		// should we clear the queue on map change?
-		// 
-		
-		if (mapChange) // change, restart maintenance
+		// should we clear the queue on map change? possibilities:
+		// - clear it on map change then immediately restart maintenance
+		// - clear it but wait until post change to restart maintenance
+		// - clear it only after map change
+		// this is also relevant when the queue is empty, when do we restart maintenance in general?
+		// - only after map move
+		// - on map move
+	
+	
+	void SetColorMode(bool colorMode)
+	{
+		if (m_bColorMode != colorMode)
 		{
-			m_NodeQueue.Clear();
-			MaintainTree();
-			UpdateCommands();
+			m_bColorMode = colorMode;
+			foreach (GC_QuadNode node : m_aActiveNodes)
+				node.UpdateColor(m_bColorMode);
 		}
-		else if (MaintainTree()) // no map change, but maintenance progress
-		{
-			UpdateCommands();
-		}
-		
-		m_vPreviousPan = currentPan;
-		m_fPreviousZoom = currentZoom;
-
 	}
 	
 	protected void InitTree()
@@ -92,15 +151,13 @@ class GC_TracingSystem : GameSystem
 		}
 	}
 	
-	//! Maintains the quad tree, removing obsolete nodes and adding required nodes. Returns whether a command update it needed.
-	protected bool MaintainTree()
+	//! Maintains the quad tree, removing obsolete nodes and adding required nodes.
+	protected void MaintainTree(bool restart)
 	{
-		bool needUpdate = false;
 		
-		// if these aren't the same as previous frame, re-start queue
 		int intendedLevel = 5;
 		
-		if (false)
+		if (restart)
 		{
 			m_NodeQueue.Clear();
 			m_NodeQueue.Enqueue(m_QuadTree);
@@ -171,8 +228,6 @@ class GC_TracingSystem : GameSystem
 			node = m_NodeQueue.Deque();
 			
 		}
-		
-		return needUpdate;
 
 		// check if current node has view intersection and further subdivision is required (level)
 		// 	if not, null children and make self active (if not null already). still need to deactivate them though
@@ -222,21 +277,12 @@ class GC_TracingSystem : GameSystem
 		if (node.m_iActiveIndex < 0) // this if might be redundant
 		{
 			m_aActiveNodes.Insert(node);
-			m_aDrawCommands.Insert(node.m_DrawCommand);
-			// if no map move update is scheduled this frame, maybe update command from here
-			
 			node.m_iActiveIndex = m_aActiveNodes.Count() - 1;
+			
+			node.CreateCommand(m_bColorMode);
+			node.UpdateVertices(m_MapEntity);
+			m_aDrawCommands.Insert(node.m_DrawCommand);
 		}
-	}
-
-	protected void UpdateCommands()
-	{
-		foreach (GC_QuadNode node : m_aActiveNodes)
-		{
-			node.UpdateCommand(m_bColorMode, m_MapEntity); // pass current map view
-		}
-
-		// also update source marker maybe (or possibly do this elsewhere)
 	}
 	
 	// on node activation, add draw command to array. on deactivation, remove
