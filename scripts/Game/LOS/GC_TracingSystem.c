@@ -8,10 +8,10 @@ class GC_TracingSystem : GameSystem
 	protected ref GC_QuadNode m_QuadTree;
 	
 	//! Nodes that should have draw commands
-	protected ref array<GC_QuadNode> m_aActiveNodes;
+	protected ref array<GC_QuadNode> m_aActiveNodes = {};
 	
 	//! Array of draw commands, rebuilt frequently
-	protected ref array<ref CanvasWidgetCommand> m_aDrawCommands = null;
+	protected ref array<ref CanvasWidgetCommand> m_aDrawCommands = {};
 
 	//! Node queue
 	protected ref GC_SimpleQueue<GC_QuadNode> m_NodeQueue = new GC_SimpleQueue<GC_QuadNode>();
@@ -65,11 +65,14 @@ class GC_TracingSystem : GameSystem
 	{
 		Print("Deactivating tracing system");
 		
+		if (m_wCanvasWidget)
+   			 m_wCanvasWidget.RemoveFromHierarchy();
+		
 		m_NodeQueue.Clear();
 		m_QuadTree = null;
 		m_aActiveNodes.Clear();
 		m_wCanvasWidget = null;
-		m_aDrawCommands = null;
+		m_aDrawCommands.Clear();
 		
 		Enable(false);
 	}
@@ -77,9 +80,15 @@ class GC_TracingSystem : GameSystem
 	//! Tool init (tool is opened etc)
 	protected void Init()
 	{
+		if (m_wCanvasWidget)
+   			 m_wCanvasWidget.RemoveFromHierarchy();
+		m_NodeQueue.Clear();
+		m_bMapChanged = true;
+		
 		vector offset = m_MapEntity.Offset();
 		vector size = m_MapEntity.Size();
 		m_QuadTree = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, 0, offset[0], offset[0] + size[0], offset[2], offset[2] + size[2]);
+		ActivateNode(m_QuadTree);
 		
 		Widget mapFrame = m_MapEntity.GetMapMenuRoot().FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME);
 		if (!mapFrame)
@@ -88,9 +97,7 @@ class GC_TracingSystem : GameSystem
 			 return;
 		
 		m_wCanvasWidget = CanvasWidget.Cast(GetGame().GetWorkspace().CreateWidgets("{F928661E727CC638}UI/Map/GC_LOSCanvas.layout", mapFrame));
-		m_aDrawCommands = {};
 		m_wCanvasWidget.SetDrawCommands(m_aDrawCommands);
-		m_aActiveNodes = {};
 	}
 	
 	protected vector m_vPreviousPan;
@@ -155,7 +162,6 @@ class GC_TracingSystem : GameSystem
 		{
 			m_NodeQueue.Clear();
 			m_NodeQueue.Enqueue(m_QuadTree);
-			ActivateNode(m_QuadTree);
 		}
 		
 		int frameCost = 0;
@@ -167,13 +173,16 @@ class GC_TracingSystem : GameSystem
 		const float frameY1 = frameMin[2];
 		const float frameY2 = frameMax[2];
 
-		GC_QuadNode node = m_NodeQueue.Deque();
-		while (node && frameCost < m_iMaintenanceBudget)
+		while (frameCost < m_iMaintenanceBudget)
 		{
+			GC_QuadNode node = m_NodeQueue.Deque();
+			if (!node)
+				break;
+			
 			frameCost += 1;
 			const bool levelReached = node.m_iLevel >= intendedLevel;
 			const bool intersection = GC_TracingHelper.BboxIntersects(frameX1, frameX2, frameY1, frameY2, node.m_fX1, node.m_fX2, node.m_fY1, node.m_fY2);
-			const bool hasChildren = 0 > node.m_iActiveIndex;
+			const bool hasChildren = node.m_Q1 != null;
 			
 			
 			if (levelReached || !intersection)
@@ -219,8 +228,6 @@ class GC_TracingSystem : GameSystem
 				m_NodeQueue.Enqueue(node.m_Q3);
 				m_NodeQueue.Enqueue(node.m_Q4);
 			}
-			
-			node = m_NodeQueue.Deque();
 			
 		}
 
@@ -279,42 +286,5 @@ class GC_TracingSystem : GameSystem
 			m_aDrawCommands.Insert(node.m_DrawCommand);
 		}
 	}
-	
-	// on node activation, add draw command to array. on deactivation, remove
-	
-	
-
-	// how to i make sure to not regenerate all draw commands every time
-
-	// in case of level change, need to traverse the entire tree, in case of map move, only the delta areas
-	// when traversing the tree, and arrived at the final level, could add the nodes to drawcommands directly (or remove directly when creating children)
-	// removal can be done via a draw commands array index saved on the node itself (need to change swapback index too)
-
-	// i should probably make a difference between loadLevel and displayLevel maybe
-
-	// as a prerequisite of stage 1, check if the change was even significant enough maybe
-	
-	// task 1: maintain an adequate tree for the current map view
-	// - receives current map view BB and zoom level
-	//	 calculate intended depth level => do breadth first traversal of tree (frame budget) up to the level
-	//			if node child is within map view and not over level, make sure it exists
-	//			else make sure it does not exist
-	// - determines what parts of the quadtree should be loaded at which resolution
-	// - queues relevant traces
-	// - somehow, initiates deletion of irrelevant nodes. maybe just a post-move traversal that goes down only to intended depth and deletes any child references
-	// task 2: selecting "active" nodes to be drawn, of what data is available, these just get stored in an array
-	// - there is a computed ideal for the current map view
-	// task 3: every frame, if the map moved, update vertices of currently shown polygons
-	// - there is an array of polygondrawcommands
-	// - there is also an array of currently active quad nodes which have draw commands
-	// - if there was a map change, go through active nodes array and update their draw commands
-	// - maybe avoid world coords entirely and only go with map coords
-	
-	// - quadnode has methods for creating and updating draw command based on current map view. maybe even stored directly on the node
-
-
-	// question: do i want to traverse the entire quadtree every frame? could have a shared budget between nodes and traces then stop
-	// main question, is the amount of nodes to traverse so great that it warrants the extra cost of keeping track of node visits
-
 
 }

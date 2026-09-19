@@ -33,7 +33,7 @@ class GC_SimpleQueue<Class T>
 
 	bool IsEmpty()
 	{
-		return m_Start;
+		return !m_Start;
 	}
 
 	void Clear()

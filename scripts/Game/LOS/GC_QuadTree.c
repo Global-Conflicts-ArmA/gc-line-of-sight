@@ -79,7 +79,7 @@ class GC_QuadNode
 		else if (mode == GC_ShadingMode.Blacken)
 			c = Color(0, 0, 0, anyBlocked * 0.25); // 0 alpha if none blocked, 1 alpha if all blocked
 		else if (mode == GC_ShadingMode.Obstacle && anyBlocked != 0)
-			c = Color(1, m_iEntsBlocked / anyBlocked * 0.75, 0, anyBlocked * 0.125); // red 1, green 0 to 0.75, blue 0 => red to yellow gradient
+			c = Color(1, m_iEntsBlocked * 0.75 / anyBlocked, 0, anyBlocked * 0.125); // red 1, green 0 to 0.75, blue 0 => red to yellow gradient
 		else
 			c = Color(0, 0, 0, 0);
 		
