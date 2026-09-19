@@ -1,7 +1,5 @@
 class GC_QuadNode
-{
-	protected int m_iColor;
-	
+{	
 	protected int m_iEntsBlocked;
 	protected int m_iTerrBlocked;
 
@@ -65,21 +63,25 @@ class GC_QuadNode
 		m_DrawCommand.m_Vertices = { p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y };
 	}
 	
-	void CreateCommand(bool colorMode)
+	void CreateCommand(GC_ShadingMode mode)
 	{
 		m_DrawCommand = new PolygonDrawCommand();
-		UpdateColor(colorMode);
+		UpdateColor(mode);
 	}
 	
-	void UpdateColor(bool colorMode)
+	void UpdateColor(GC_ShadingMode mode)
 	{
 		const int anyBlocked = m_iTerrBlocked + m_iEntsBlocked;
 		
 		Color c;
-		if (!colorMode || anyBlocked == 0)
-			c = Color(0, 0, 0, anyBlocked * 0.125); // 0 alpha if none blocked, 0.5 alpha if all blocked
-		else
+		if (mode == GC_ShadingMode.Darken)
+			c = Color(0, 0, 0, anyBlocked * 0.125);
+		else if (mode == GC_ShadingMode.Blacken)
+			c = Color(0, 0, 0, anyBlocked * 0.25); // 0 alpha if none blocked, 1 alpha if all blocked
+		else if (mode == GC_ShadingMode.Obstacle && anyBlocked != 0)
 			c = Color(1, m_iEntsBlocked / anyBlocked * 0.75, 0, anyBlocked * 0.125); // red 1, green 0 to 0.75, blue 0 => red to yellow gradient
+		else
+			c = Color(0, 0, 0, 0);
 		
 		m_DrawCommand.m_iColor = c.PackToInt();
 	}

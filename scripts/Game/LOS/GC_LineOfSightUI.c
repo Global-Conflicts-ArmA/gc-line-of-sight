@@ -12,11 +12,29 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	protected SCR_MapCursorModule m_CursorModule;
 	protected GC_TracingSystem m_TracingSystem;
 	
-	protected bool m_bToolActive;
+	protected bool m_bToolActive = false;
 	
 	protected float m_fSourceOffset = 1.5;
 	protected float m_fTargetOffset = 0.5;
-	protected bool m_bColorMode = false;
+	
+	protected const ResourceName GUI_LAYOUT = "{B4D66F006C21C69E}UI/layouts/Menus/DeployMenu/GC_LineOfSightSettings.layout";
+	protected const ResourceName TOOL_IMAGESET = "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset";
+	protected const string TOOL_ICON = "terrainIcon";
+	
+	
+	// GUI widgets
+	protected Widget m_wLineOfSightRoot;
+	protected EditBoxWidget m_wSourceBox;
+	protected EditBoxWidget m_wTargetBox;
+	protected XComboBoxWidget m_wShadingBox;
+	protected ButtonWidget m_wHideButton;
+	protected TextWidget m_wHideText;
+	protected ButtonWidget m_wPositionButton;
+	protected TextWidget m_wPositionText;
+	
+	protected bool m_bAwaitingInputClick = false;
+	
+	protected bool m_bHidePolygons = false;
 	
 	
 	override void Init()
@@ -24,9 +42,9 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		super.Init();
 		
 		SCR_MapToolMenuUI toolMenu = SCR_MapToolMenuUI.Cast(m_MapEntity.GetMapUIComponent(SCR_MapToolMenuUI));
-		if (!toolMenu)
+		if (toolMenu)
 		{
-			m_ToolMenuEntry = toolMenu.RegisterToolMenuEntry("{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset", "terrainIcon", 50);
+			m_ToolMenuEntry = toolMenu.RegisterToolMenuEntry(TOOL_IMAGESET, TOOL_ICON, 50);
 			m_ToolMenuEntry.m_OnClick.Insert(ToolButtonClicked);
 			m_ToolMenuEntry.SetEnabled(true);
 		}
@@ -38,51 +56,69 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	
 	protected void ToolButtonClicked()
 	{
+		m_bToolActive = !m_bToolActive;
 		
 		// while active, also display settings ui
 		
-		if (!m_bToolActive)
+		m_ToolMenuEntry.SetActive(m_bToolActive);
+		
+		if (!m_wLineOfSightRoot)
+			CreateLayout();
+		m_wLineOfSightRoot.SetVisible(m_bToolActive);
+		
+		if (m_bToolActive)
 		{
-			AwaitInput();
+			UpdateLayoutPosition();
+			StartAwaitInput();
 		}
 		else
-		{
 			StopAwaitInput();
-		}
-		
-		m_bToolActive = !m_bToolActive;
 	}
 	
-	override void OnMapOpen(MapConfiguration config)
+	protected void UpdateLayoutPosition()
 	{
-		super.OnMapOpen(config);
-		ActivateTool(); // maybe not
+		if (!m_ToolMenuEntry || !m_ToolMenuEntry.m_ButtonComp)
+			return;
+
+		Widget toolButton = m_ToolMenuEntry.m_ButtonComp.GetRootWidget();
+		if (!toolButton)
+			return;
+		
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+			return;
+
+		float buttonPosX, buttonPosY, buttonSizeX, buttonSizeY;
+		toolButton.GetScreenPos(buttonPosX, buttonPosY);
+		toolButton.GetScreenSize(buttonSizeX, buttonSizeY);
+		
+		FrameSlot.SetPosY(m_wLineOfSightRoot, workspace.DPIUnscale(buttonPosY - buttonSizeY + 200));
 	}
 	
 	override void OnMapClose(MapConfiguration config)
 	{		
 		super.OnMapClose(config);
-		DeactivateTool();
+		m_TracingSystem.DeactivateTool();
+		
+		if (m_bAwaitingInputClick)
+			StopAwaitInput();
 	}
 	
 	
-	protected void ActivateTool();
-	// await click input
-	
-	protected void DeactivateTool();
-	
-	
-	protected void AwaitInput()
+	protected void StartAwaitInput()
 	{
-		GetGame().GetInputManager().AddActionListener("MapSelect", EActionTrigger.DOWN, OnMapClick);
+		m_bAwaitingInputClick = true;
+		GetGame().GetInputManager().AddActionListener("MapSelect", EActionTrigger.DOWN, OnInputClick);
+		m_wPositionText.SetText("Awaiting position");
 	}
 	
 	protected void StopAwaitInput()
 	{
-		GetGame().GetInputManager().RemoveActionListener("MapSelect", EActionTrigger.DOWN, OnMapClick);
+		m_bAwaitingInputClick = false;
+		GetGame().GetInputManager().RemoveActionListener("MapSelect", EActionTrigger.DOWN, OnInputClick);
 	}
 	
-	protected void OnMapClick(float value, EActionTrigger reason)
+	protected void OnInputClick(float value, EActionTrigger reason)
 	{
 		StopAwaitInput();
 		
@@ -90,16 +126,82 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		
 		float cursorX, cursorY;
 		m_MapEntity.GetMapCursorWorldPosition(cursorX, cursorY);
-		
 		m_TracingSystem.ActivateTool(cursorX, cursorY, m_fSourceOffset, m_fTargetOffset);
 	}
 	
-	
-	protected void ToggleColorMode()
+	protected void CreateLayout()
 	{
-		m_bColorMode = !m_bColorMode;
-		// visually toggle button in ui
+		m_wLineOfSightRoot = GetGame().GetWorkspace().CreateWidgets(GUI_LAYOUT, m_RootWidget);
+		m_wSourceBox = EditBoxWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("SourceBox"));
+		m_wTargetBox = EditBoxWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("TargetBox"));
+		m_wShadingBox = XComboBoxWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("ShadingBox"));
+		m_wHideButton = ButtonWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("HideButton"));
+		m_wHideText = TextWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("HideText"));
+		m_wPositionButton = ButtonWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("PositionButton"));
+		m_wPositionText = TextWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("PositionText"));
 		
-		m_TracingSystem.SetColorMode(m_bColorMode);
+		SCR_ButtonComponent hideButtonComp = SCR_ButtonComponent.Cast(m_wHideButton.FindHandler(SCR_ButtonComponent));
+		hideButtonComp.m_OnClicked.Insert(HideButtonClicked);
+		
+		SCR_ButtonComponent positionButtonComp = SCR_ButtonComponent.Cast(m_wPositionButton.FindHandler(SCR_ButtonComponent));
+		positionButtonComp.m_OnClicked.Insert(PositionButtonClicked);
+		
+		EditBoxFilterComponent sourceBoxFilterComp = EditBoxFilterComponent.Cast(m_wSourceBox.FindHandler(EditBoxFilterComponent));
+		sourceBoxFilterComp.m_OnValidInput.Insert(SourceBoxInput);
+		
+		EditBoxFilterComponent targetBoxFilterComp = EditBoxFilterComponent.Cast(m_wTargetBox.FindHandler(EditBoxFilterComponent));
+		targetBoxFilterComp.m_OnValidInput.Insert(TargetBoxInput);
+		
+		SCR_ComboBoxComponent comboBoxComp = SCR_ComboBoxComponent.Cast(m_wShadingBox.FindHandler(SCR_ComboBoxComponent));
+		comboBoxComp.m_OnChanged.Insert(ComboBoxChanged);
 	}
+	
+	protected void HideButtonClicked()
+	{
+		m_bHidePolygons = !m_bHidePolygons;
+		if (m_bHidePolygons)
+			m_wHideText.SetText("Unhide");
+		else
+			m_wHideText.SetText("Hide");
+		// tell system to update visibility (maybe via color)
+	}
+	
+	protected void PositionButtonClicked()
+	{
+		if (!m_bAwaitingInputClick)
+			StartAwaitInput();
+		else
+			StopAwaitInput();
+	}
+	
+	protected void SourceBoxInput()
+	{
+		string text = m_wSourceBox.GetText();
+		if (!text)
+			return;
+		float height = text.ToFloat(-1);
+		Print(height);
+		if (height < 0)
+		{
+			m_wSourceBox.SetText(m_fSourceOffset.ToString());
+			return;
+		}
+		// regenerate
+	}
+	
+	protected void TargetBoxInput()
+	{
+	}
+	
+	protected void ComboBoxChanged()
+	{
+		m_TracingSystem.SetShadingMode(m_wShadingBox.GetCurrentItem());
+	}
+}
+
+enum GC_ShadingMode // must have same order as layout entries
+{
+	Darken,
+	Blacken,
+	Obstacle
 }

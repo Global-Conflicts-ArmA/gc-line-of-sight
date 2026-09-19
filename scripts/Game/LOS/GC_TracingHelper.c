@@ -3,9 +3,8 @@ class GC_TracingHelper
 	//! Receives 2 bounding boxes and checks for intersection (2 must be greater than 1)
 	static bool BboxIntersects(int ax1, int ax2, int ay1, int ay2, int bx1, int bx2, int by1, int by2)
 	{
-
 		return ax2 > bx1 || ay2 > by1 || bx2 > ax1 || by2 > ay1;
-
+	}
 
 
 		// 2d cases: a b, each 1<2
@@ -17,11 +16,7 @@ class GC_TracingHelper
 
 		// INTERSECTION = no overlap
 		// OVERLAP = excludes/touches on one axis
-	}
 
-	static bool BboxIncludes(int ax1, int ax2, int ay1, int ay2, int bx1, int bx2, int by1, int by2)
-	{
-	}
 
 	static bool SightBlocked(BaseWorld world, vector fromPos, vector toPos, TraceFlags flags, EPhysicsLayerDefs layer, float tolerance = 1.0)
 	{

@@ -1,0 +1,250 @@
+FrameWidgetClass {
+ Name "LineOfSightSettings"
+ Slot FrameWidgetSlot "{610680611E7D6206}" {
+  PositionX 0
+  OffsetLeft 0
+  PositionY 0
+  OffsetTop 0
+  SizeX 1920
+  OffsetRight -1920
+  SizeY 1080
+  OffsetBottom -1080
+ }
+ {
+  HorizontalLayoutWidgetClass "{6A656AFA88AFBDBE}" {
+   Name "HorizontalLayout"
+   Slot FrameWidgetSlot "{5CDCC75C87D0B27E}" {
+    Anchor 0 0 0 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 0
+    OffsetRight 0
+    SizeY 0
+    OffsetBottom 0
+    SizeToContent 1
+   }
+   {
+    SizeLayoutWidgetClass "{6A656AFA88AFBDBF}" {
+     Name "SizeLayout"
+     Slot LayoutSlot "{5CDEA4462E30A03E}" {
+      HorizontalAlign 0
+      VerticalAlign 0
+      FillWeight 1
+     }
+     AllowWidthOverride 1
+     WidthOverride 250
+     {
+      OverlayWidgetClass "{6A656AFA88AFBDB8}" {
+       Name "Overlay"
+       Slot AlignableSlot "{5D6293CA3DB4A0E2}" {
+        HorizontalAlign 3
+        VerticalAlign 3
+       }
+       {
+        SmartPanelWidgetClass "{6A656AFA88AFED30}" {
+         Name "Background"
+         Slot OverlayWidgetSlot "{5CDCAC652E54BBDB}" {
+          HorizontalAlign 3
+          VerticalAlign 3
+         }
+         Opacity 0.985
+         Color 0.0075 0.0123 0.0145 1
+         style rounded_4px
+        }
+        VerticalLayoutWidgetClass "{6A656AFA88AFED33}" {
+         Name "Vertical"
+         Slot OverlayWidgetSlot "{5EB48164DA2A6233}" {
+          HorizontalAlign 3
+          VerticalAlign 3
+         }
+         {
+          VerticalLayoutWidgetClass "{6A656AFA88AE2ED6}" {
+           Name "Header"
+           Slot LayoutSlot "{5CDC774784415BD9}" {
+            Padding 10 10 10 10
+           }
+           {
+            TextWidgetClass "{6A656AFA88AE2EC9}" {
+             Name "Title"
+             Slot LayoutSlot "{68AE78CE51A9E542}" {
+             }
+             Clipping False
+             Text "LOS Tool Settings"
+             FontProperties FontProperties "{5CDCAC64C215FAE8}" {
+              Font "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt"
+             }
+            }
+           }
+          }
+          OverlayWidgetClass "{6A656AFA88AE2ECA}" {
+           Name "Content"
+           Slot LayoutSlot "{62ACC9C3B12DF704}" {
+            Padding 10 2 10 10
+            SizeMode Fill
+           }
+           {
+            VerticalLayoutWidgetClass "{6A656AFA88AE0D6B}" {
+             Name "VerticalLayout0"
+             Slot OverlayWidgetSlot "{68ACAA275A194ABE}" {
+              HorizontalAlign 3
+             }
+             {
+              OverlayWidgetClass "{6A656AFA88AE805A}" {
+               Name "Settings"
+               Slot LayoutSlot "{68ACAA2360806D5D}" {
+                VerticalAlign 1
+               }
+               {
+                VerticalLayoutWidgetClass "{6A656AFA88AE8059}" {
+                 Name "SettingsContent"
+                 Slot OverlayWidgetSlot "{68ACAA2480ECFC07}" {
+                  HorizontalAlign 3
+                 }
+                 {
+                  TextWidgetClass "{6A656AF8CD382AC9}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{6A656AF8CD382AA2}" {
+                    Padding 0 5 0 0
+                   }
+                   Tooltip TextWidgetTooltip "{6A66CC1D26084FD1}" {
+                    Text "E. g. increase source to 3 if the observer is a vehicle with a 3m high turrret, or target to 30m is the target is a helicopter flying at that altitude"
+                   }
+                   Text "Above Ground Level (m)"
+                  }
+                  HorizontalLayoutWidgetClass "{6A656AF8455393F8}" {
+                   Name "HorizontalLayout0"
+                   Slot LayoutSlot "{6A656AF8455393D5}" {
+                    Padding 0 2 0 5
+                   }
+                   {
+                    VerticalLayoutWidgetClass "{6A656AF9197BB35C}" {
+                     Name "VerticalLayout0"
+                     Slot LayoutSlot "{6A656AF9197BB334}" {
+                      SizeMode Fill
+                     }
+                     {
+                      TextWidgetClass "{6A656AF90DA8130D}" {
+                       Name "SourceText"
+                       Slot LayoutSlot "{6A656AF90DA813E1}" {
+                        Padding 0 2 0 2
+                       }
+                       Text "Source"
+                      }
+                      EditBoxWidgetClass "{6A656AF80F3782C8}" {
+                       Name "SourceBox"
+                       Slot LayoutSlot "{6A656AF80F3782A3}" {
+                        Padding 0 2 0 2
+                       }
+                       components {
+                        EditBoxFilterComponent "{6A66CC132900CA81}" {
+                         m_bASCIIchars 0
+                         m_bUTFMultibyte 0
+                        }
+                       }
+                       text "1.5"
+                       "limit visible" 1
+                      }
+                     }
+                    }
+                    VerticalLayoutWidgetClass "{6A656AF91D2622A1}" {
+                     Name "VerticalLayout1"
+                     Slot LayoutSlot "{6A656AF91D2622BD}" {
+                      SizeMode Fill
+                     }
+                     {
+                      TextWidgetClass "{6A656AF97383142D}" {
+                       Name "TargetText"
+                       Slot LayoutSlot "{6A656AF973831401}" {
+                        Padding 0 2 0 2
+                       }
+                       Text "Target"
+                      }
+                      EditBoxWidgetClass "{6A656AF8B049C5CE}" {
+                       Name "TargetBox"
+                       Slot LayoutSlot "{6A656AF8B049C5DB}" {
+                        Padding 0 2 0 2
+                       }
+                       components {
+                        EditBoxFilterComponent "{6A66CC17E94701F5}" {
+                         m_iCharacterLimit 4
+                         m_bASCIIchars 0
+                         m_bUTFMultibyte 0
+                        }
+                       }
+                       text "0.25"
+                       "limit visible" 1
+                      }
+                     }
+                    }
+                   }
+                  }
+                  XComboBoxWidgetClass "{6A656AFC2EB17F72}" {
+                   Name "ShadingBox"
+                   Slot LayoutSlot "{6A656AFC2EB17F4B}" {
+                    Padding 0 5 0 5
+                   }
+                   components {
+                    SCR_ComboBoxComponent "{6A66CC0CC9D9FCAE}" {
+                    }
+                   }
+                   items {
+                    "Darken" "Blacken" "Obstacle"
+                   }
+                  }
+                  ButtonWidgetClass "{6A656AFC5CB58A59}" {
+                   Name "HideButton"
+                   Slot LayoutSlot "{6A656AFC5CB58A3F}" {
+                    Padding 0 5 0 5
+                   }
+                   Color 1 1 1 0.0163
+                   components {
+                    SCR_ButtonComponent "{6A66CC0E168D92D5}" {
+                    }
+                   }
+                   {
+                    TextWidgetClass "{6A656AFC4E68FBD1}" {
+                     Name "HideText"
+                     Slot ButtonWidgetSlot "{6A656AFC4E68FBB7}" {
+                     }
+                     Text "Hide"
+                    }
+                   }
+                  }
+                  ButtonWidgetClass "{6A66CC02F3270217}" {
+                   Name "PositionButton"
+                   Slot LayoutSlot "{6A656AFC5CB58A3F}" {
+                    Padding 0 5 0 5
+                   }
+                   Color 1 1 1 0.0157
+                   components {
+                    SCR_ButtonComponent "{6A66CC0C9BB0C44B}" {
+                    }
+                   }
+                   {
+                    TextWidgetClass "{6A66CC02F3270210}" {
+                     Name "PositionText"
+                     Slot ButtonWidgetSlot "{6A656AFC4E68FBB7}" {
+                     }
+                     Text "Awaiting position"
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

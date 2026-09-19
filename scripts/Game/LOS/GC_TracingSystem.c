@@ -16,8 +16,8 @@ class GC_TracingSystem : GameSystem
 	//! Node queue
 	protected ref GC_SimpleQueue<GC_QuadNode> m_NodeQueue = new GC_SimpleQueue<GC_QuadNode>();
 	
-	//! Color mode vs. shade mode
-	protected bool m_bColorMode = false;
+	//! Shading mode
+	protected GC_ShadingMode m_bShadingMode = GC_ShadingMode.Darken;
 
 	
 	protected int m_iMaintenanceBudget = 1000;
@@ -34,6 +34,7 @@ class GC_TracingSystem : GameSystem
 			.SetAbstract(false)
 			.SetUnique(true)
 			.SetLocation(WorldSystemLocation.Client)
+			.AddPoint(ESystemPoint.PostFrame);
 	}
 	
 	//! Global init, even if the tool is not active yet
@@ -48,6 +49,8 @@ class GC_TracingSystem : GameSystem
 	
 	void ActivateTool(float worldX, float worldY, float sourceOffset, float targetOffset)
 	{
+		Print("Activating tracing system");
+		
 		m_vSourcePos = Vector(worldX, Math.Max(0, GetGame().GetWorld().GetSurfaceY(worldX, worldY)) + sourceOffset, worldY);
 		m_fTargetOffset = targetOffset;
 		
@@ -58,8 +61,10 @@ class GC_TracingSystem : GameSystem
 	}
 	
 	//! Tool reset (tool or map is closed etc)
-	protected void DeactivateTool()
+	void DeactivateTool()
 	{
+		Print("Deactivating tracing system");
+		
 		m_NodeQueue.Clear();
 		m_QuadTree = null;
 		m_aActiveNodes.Clear();
@@ -85,6 +90,7 @@ class GC_TracingSystem : GameSystem
 		m_wCanvasWidget = CanvasWidget.Cast(GetGame().GetWorkspace().CreateWidgets("{F928661E727CC638}UI/Map/GC_LOSCanvas.layout", mapFrame));
 		m_aDrawCommands = {};
 		m_wCanvasWidget.SetDrawCommands(m_aDrawCommands);
+		m_aActiveNodes = {};
 	}
 	
 	protected vector m_vPreviousPan;
@@ -129,13 +135,13 @@ class GC_TracingSystem : GameSystem
 		// - on map move
 	
 	
-	void SetColorMode(bool colorMode)
+	void SetShadingMode(GC_ShadingMode mode)
 	{
-		if (m_bColorMode != colorMode)
+		if (m_bShadingMode != mode)
 		{
-			m_bColorMode = colorMode;
+			m_bShadingMode = mode;
 			foreach (GC_QuadNode node : m_aActiveNodes)
-				node.UpdateColor(m_bColorMode);
+				node.UpdateColor(m_bShadingMode);
 		}
 	}
 	
@@ -149,6 +155,7 @@ class GC_TracingSystem : GameSystem
 		{
 			m_NodeQueue.Clear();
 			m_NodeQueue.Enqueue(m_QuadTree);
+			ActivateNode(m_QuadTree);
 		}
 		
 		int frameCost = 0;
@@ -267,7 +274,7 @@ class GC_TracingSystem : GameSystem
 			m_aActiveNodes.Insert(node);
 			node.m_iActiveIndex = m_aActiveNodes.Count() - 1;
 			
-			node.CreateCommand(m_bColorMode);
+			node.CreateCommand(m_bShadingMode);
 			node.UpdateVertices(m_MapEntity);
 			m_aDrawCommands.Insert(node.m_DrawCommand);
 		}

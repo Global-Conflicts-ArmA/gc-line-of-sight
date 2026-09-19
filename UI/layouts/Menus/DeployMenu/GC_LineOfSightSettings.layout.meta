@@ -1,0 +1,17 @@
+MetaFileClass {
+ Name "{B4D66F006C21C69E}UI/layouts/Menus/DeployMenu/GC_LineOfSightSettings.layout"
+ Configurations {
+  LayoutResourceClass PC {
+  }
+  LayoutResourceClass XBOX_ONE : PC {
+  }
+  LayoutResourceClass XBOX_SERIES : PC {
+  }
+  LayoutResourceClass PS4 : PC {
+  }
+  LayoutResourceClass PS5 : PC {
+  }
+  LayoutResourceClass HEADLESS : PC {
+  }
+ }
+}
