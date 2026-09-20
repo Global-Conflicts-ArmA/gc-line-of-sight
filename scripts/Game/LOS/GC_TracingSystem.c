@@ -26,6 +26,10 @@ class GC_TracingSystem : GameSystem
 	protected vector m_vSourcePos;
 	protected float m_fTargetOffset;
 	
+	protected vector m_vPreviousPan;
+	protected float m_fPreviousZoom;
+	protected bool m_bMapChanged;
+	
 	
 	override static void InitInfo(WorldSystemInfo outInfo)
 	{
@@ -77,6 +81,9 @@ class GC_TracingSystem : GameSystem
 		m_wCanvasWidget = null;
 		m_aDrawCommands.Clear();
 		
+		m_vPreviousPan = vector.Zero;
+		m_fPreviousZoom = 0;
+		
 		Enable(false);
 	}
 	
@@ -100,10 +107,6 @@ class GC_TracingSystem : GameSystem
 		m_wCanvasWidget.SetDrawCommands(m_aDrawCommands);
 	}
 	
-	protected vector m_vPreviousPan;
-	protected float m_fPreviousZoom;
-	protected bool m_bMapChanged;
-	
 	//! Frame update event
 	override void OnUpdate(WorldSystemPoint point)
 	{
@@ -116,7 +119,7 @@ class GC_TracingSystem : GameSystem
 		
 		if (mapChange)
 			foreach (GC_QuadNode node : m_aActiveNodes)
-				node.UpdateVertices(m_MapEntity);
+				node.UpdateVertices(m_MapEntity); // i guess i could only do this if they are currently in view
 		else if (m_bMapChanged)
 			MaintainTree(true);
 		else if (!m_NodeQueue.IsEmpty())
@@ -151,6 +154,9 @@ class GC_TracingSystem : GameSystem
 				node.UpdateColor(m_bShadingMode);
 		}
 	}
+	
+	/// performance problem: scrolling back out from high detail causes lag, maybe it's the node queue clear operation
+	// in that case, could try the array based version
 	
 	//! Maintains the quad tree, removing obsolete nodes and adding required nodes.
 	protected void MaintainTree(bool restart)
@@ -298,7 +304,9 @@ class GC_TracingSystem : GameSystem
 			m_aActiveNodes.Insert(node);
 			node.m_iActiveIndex = m_aActiveNodes.Count() - 1;
 			
-			node.CreateCommand(m_bShadingMode);
+			if (!node.m_DrawCommand)
+				node.CreateCommand();
+			node.UpdateColor(m_bShadingMode);
 			node.UpdateVertices(m_MapEntity);
 			m_aDrawCommands.Insert(node.m_DrawCommand);
 		}

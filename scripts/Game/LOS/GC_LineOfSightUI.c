@@ -33,6 +33,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	protected TextWidget m_wPositionText;
 	
 	protected bool m_bAwaitingInputClick = false;
+	protected bool m_bSystemActive = false;
 	
 	protected bool m_bHidePolygons = false;
 	
@@ -72,7 +73,15 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 			StartAwaitInput();
 		}
 		else
-			StopAwaitInput();
+		{
+			if (m_bSystemActive)
+			{
+				m_TracingSystem.DeactivateTool();
+				m_bSystemActive = false;
+			}
+			if (m_bAwaitingInputClick)
+				StopAwaitInput();
+		}
 	}
 	
 	protected void UpdateLayoutPosition()
@@ -98,10 +107,9 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	override void OnMapClose(MapConfiguration config)
 	{		
 		super.OnMapClose(config);
-		m_TracingSystem.DeactivateTool();
 		
-		if (m_bAwaitingInputClick)
-			StopAwaitInput();
+		if (m_bToolActive)
+			ToolButtonClicked();
 	}
 	
 	
@@ -126,8 +134,8 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		
 		float cursorX, cursorY;
 		m_MapEntity.GetMapCursorWorldPosition(cursorX, cursorY);
-		m_TracingSystem.DeactivateTool();
 		m_TracingSystem.ActivateTool(cursorX, cursorY, m_fSourceOffset, m_fTargetOffset);
+		m_bSystemActive = true;
 	}
 	
 	protected void CreateLayout()

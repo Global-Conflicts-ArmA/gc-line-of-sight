@@ -60,29 +60,33 @@ class GC_QuadNode
 		mapEntity.WorldToScreen(m_fX1, m_fY1, p3x, p3y, true);
 		mapEntity.WorldToScreen(m_fX2, m_fY1, p4x, p4y, true);
 		
-		m_DrawCommand.m_Vertices = { p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y };
+		m_DrawCommand.m_Vertices[0] = p1x;
+		m_DrawCommand.m_Vertices[1] = p1y;
+		m_DrawCommand.m_Vertices[2] = p2x;
+		m_DrawCommand.m_Vertices[3] = p2y;
+		m_DrawCommand.m_Vertices[4] = p3x;
+		m_DrawCommand.m_Vertices[5] = p3y;
+		m_DrawCommand.m_Vertices[6] = p4x;
+		m_DrawCommand.m_Vertices[7] = p4y;
 	}
 	
-	void CreateCommand(GC_ShadingMode mode)
+	void CreateCommand()
 	{
 		m_DrawCommand = new PolygonDrawCommand();
-		UpdateColor(mode);
+		m_DrawCommand.m_Vertices = {0, 0, 0, 0, 0, 0, 0, 0};
 	}
 	
 	void UpdateColor(GC_ShadingMode mode)
 	{
 		const int anyBlocked = m_iTerrBlocked + m_iEntsBlocked;
 		
-		Color c;
 		if (mode == GC_ShadingMode.Darken)
-			c = Color(0, 0, 0, anyBlocked * 0.2);
+			m_DrawCommand.m_iColor = ARGBF(anyBlocked * 0.2, 0, 0, 0);
 		else if (mode == GC_ShadingMode.Blacken)
-			c = Color(0, 0, 0, anyBlocked * 0.25); // 0 alpha if none blocked, 1 alpha if all blocked
+			m_DrawCommand.m_iColor = ARGBF(anyBlocked * 0.25, 0, 0, 0); // 0 alpha if none blocked, 1 alpha if all blocked
 		else if (mode == GC_ShadingMode.Obstacle && anyBlocked != 0)
-			c = Color(1, m_iEntsBlocked * 0.75 / anyBlocked, 0, anyBlocked * 0.125); // red 1, green 0 to 0.75, blue 0 => red to yellow gradient
+			m_DrawCommand.m_iColor = ARGBF(anyBlocked * 0.125, 1, m_iEntsBlocked * 0.75 / anyBlocked, 0); // red 1, green 0 to 0.75, blue 0 => red to yellow gradient
 		else
-			c = Color(0, 0, 0, 0);
-		
-		m_DrawCommand.m_iColor = c.PackToInt();
+			m_DrawCommand.m_iColor = ARGBF(0, 0, 0, 0);
 	}
 }

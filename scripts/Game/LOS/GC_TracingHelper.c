@@ -1,7 +1,7 @@
 class GC_TracingHelper
 {
 	//! Receives 2 bounding boxes and checks for intersection (2 must be greater than 1)
-	static bool BboxIntersects(int ax1, int ax2, int ay1, int ay2, int bx1, int bx2, int by1, int by2)
+	static bool BboxIntersects(float ax1, float ax2, float ay1, float ay2, float bx1, float bx2, float by1, float by2)
 	{
 		return ax2 > bx1 && ax1 < bx2 && ay2 > by1 && ay1 < by2;
 	}
