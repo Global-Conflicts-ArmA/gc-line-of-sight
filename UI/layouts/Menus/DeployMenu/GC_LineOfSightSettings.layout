@@ -233,6 +233,13 @@ FrameWidgetClass {
                     }
                    }
                   }
+                  TextWidgetClass "{6A68D23CB74F13DD}" {
+                   Name "Status"
+                   Slot LayoutSlot {
+                    HorizontalAlign 1
+                   }
+                   Text "Status"
+                  }
                  }
                 }
                }

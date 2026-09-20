@@ -31,6 +31,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	protected TextWidget m_wHideText;
 	protected ButtonWidget m_wPositionButton;
 	protected TextWidget m_wPositionText;
+	protected TextWidget m_wStatusText;
 	
 	protected bool m_bAwaitingInputClick = false;
 	protected bool m_bSystemActive = false;
@@ -134,7 +135,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		
 		float cursorX, cursorY;
 		m_MapEntity.GetMapCursorWorldPosition(cursorX, cursorY);
-		m_TracingSystem.ActivateTool(cursorX, cursorY, m_fSourceOffset, m_fTargetOffset);
+		m_TracingSystem.ActivateTool(cursorX, cursorY, m_fSourceOffset, m_fTargetOffset, m_wStatusText);
 		m_bSystemActive = true;
 	}
 	
@@ -148,6 +149,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		m_wHideText = TextWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("HideText"));
 		m_wPositionButton = ButtonWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("PositionButton"));
 		m_wPositionText = TextWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("PositionText"));
+		m_wStatusText = TextWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("Status"));
 		
 		SCR_ButtonComponent hideButtonComp = SCR_ButtonComponent.Cast(m_wHideButton.FindHandler(SCR_ButtonComponent));
 		hideButtonComp.m_OnClicked.Insert(HideButtonClicked);

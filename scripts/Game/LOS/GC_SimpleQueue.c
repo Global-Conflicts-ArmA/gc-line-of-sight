@@ -2,6 +2,7 @@ class GC_SimpleQueue<Class T>
 {
 	protected ref GC_QueueElement<T> m_Start;
 	protected GC_QueueElement<T> m_End;
+	protected int m_iCounter = 0;
 
 	void Enqueue(T item)
 	{
@@ -16,6 +17,7 @@ class GC_SimpleQueue<Class T>
 			m_Start = element;
 			m_End = element;
 		}
+		m_iCounter++;
 	}
 
 	T Deque()
@@ -26,6 +28,7 @@ class GC_SimpleQueue<Class T>
 		{
 			item = m_Start.m_Item;
 			m_Start = m_Start.m_Next;
+			m_iCounter--;
 			
 			if (!m_Start)
 				m_End = null;
@@ -45,6 +48,12 @@ class GC_SimpleQueue<Class T>
 			m_Start = m_Start.m_Next;
 		
 		m_End = null;
+		m_iCounter = 0;
+	}
+	
+	int Count()
+	{
+		return m_iCounter;
 	}
 }
 

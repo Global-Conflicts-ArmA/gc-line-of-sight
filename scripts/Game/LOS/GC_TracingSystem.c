@@ -18,6 +18,8 @@ class GC_TracingSystem : GameSystem
 	
 	//! Shading mode
 	protected GC_ShadingMode m_bShadingMode = GC_ShadingMode.Darken;
+	
+	protected TextWidget m_wStatusWidget;
 
 	
 	protected int m_iMaintenanceBudget = 5000;
@@ -52,7 +54,7 @@ class GC_TracingSystem : GameSystem
 	}
 	
 	//! Tool starts tracing
-	void ActivateTool(float worldX, float worldY, float sourceOffset, float targetOffset)
+	void ActivateTool(float worldX, float worldY, float sourceOffset, float targetOffset, TextWidget status)
 	{
 		DeactivateTool();
 		
@@ -60,6 +62,7 @@ class GC_TracingSystem : GameSystem
 		
 		m_vSourcePos = Vector(worldX, Math.Max(0, GetGame().GetWorld().GetSurfaceY(worldX, worldY)) + sourceOffset, worldY);
 		m_fTargetOffset = targetOffset;
+		m_wStatusWidget = status;
 		
 		Init();
 		
@@ -115,11 +118,11 @@ class GC_TracingSystem : GameSystem
 		vector currentPan = m_MapEntity.GetCurrentPan();
 		float currentZoom = m_MapEntity.GetCurrentZoom();
 		
+		
 		bool mapChange = (m_vPreviousPan != currentPan) || (m_fPreviousZoom != currentZoom);
 		
 		if (mapChange)
-			foreach (GC_QuadNode node : m_aActiveNodes)
-				node.UpdateVertices(m_MapEntity); // i guess i could only do this if they are currently in view
+			UpdateVerticesBulk();
 		else if (m_bMapChanged)
 			MaintainTree(true);
 		else if (!m_NodeQueue.IsEmpty())
@@ -129,6 +132,67 @@ class GC_TracingSystem : GameSystem
 		m_fPreviousZoom = currentZoom;
 		m_bMapChanged = mapChange;
 
+		
+		m_wStatusWidget.SetText("Q: " + m_NodeQueue.Count() + " A: " + m_aActiveNodes.Count());
+	}
+	
+	//! Bulk process vertices instead of calling WorldToScreen individually
+	void UpdateVerticesBulk()
+	{
+		const vector pan = m_MapEntity.GetCurrentPan();
+		const float panX = pan[0];
+		const float panY = pan[1];
+	
+		const vector offset = m_MapEntity.Offset();
+		const float offsetX = offset[0];
+		const float offsetY = offset[2] + m_MapEntity.GetMapSizeY();
+	
+		const float zoom = m_MapEntity.GetCurrentZoom();
+	
+		foreach (GC_QuadNode node : m_aActiveNodes)
+		{
+			const float x1 = (node.m_fX1 - offsetX) * zoom + panX;
+			const float x2 = (node.m_fX2 - offsetX) * zoom + panX;
+			const float y1 = (offsetY - node.m_fY1) * zoom + panY;
+			const float y2 = (offsetY - node.m_fY2) * zoom + panY;
+	
+			node.m_DrawCommand.m_Vertices[0] = x2;
+			node.m_DrawCommand.m_Vertices[1] = y2;
+			node.m_DrawCommand.m_Vertices[2] = x1;
+			node.m_DrawCommand.m_Vertices[3] = y2;
+			node.m_DrawCommand.m_Vertices[4] = x1;
+			node.m_DrawCommand.m_Vertices[5] = y1;
+			node.m_DrawCommand.m_Vertices[6] = x2;
+			node.m_DrawCommand.m_Vertices[7] = y1;
+		}
+	}
+	
+	//! Still cheaper than 4 WorldToScreen calls :)
+	void UpdateVerticesSingle(GC_QuadNode node)
+	{
+		const vector pan = m_MapEntity.GetCurrentPan();
+		const float panX = pan[0];
+		const float panY = pan[1];
+	
+		const vector offset = m_MapEntity.Offset();
+		const float offsetX = offset[0];
+		const float offsetY = offset[2] + m_MapEntity.GetMapSizeY();
+	
+		const float zoom = m_MapEntity.GetCurrentZoom();
+		
+		const float x1 = (node.m_fX1 - offsetX) * zoom + panX;
+		const float x2 = (node.m_fX2 - offsetX) * zoom + panX;
+		const float y1 = (offsetY - node.m_fY1) * zoom + panY;
+		const float y2 = (offsetY - node.m_fY2) * zoom + panY;
+	
+		node.m_DrawCommand.m_Vertices[0] = x2;
+		node.m_DrawCommand.m_Vertices[1] = y2;
+		node.m_DrawCommand.m_Vertices[2] = x1;
+		node.m_DrawCommand.m_Vertices[3] = y2;
+		node.m_DrawCommand.m_Vertices[4] = x1;
+		node.m_DrawCommand.m_Vertices[5] = y1;
+		node.m_DrawCommand.m_Vertices[6] = x2;
+		node.m_DrawCommand.m_Vertices[7] = y1;
 	}
 		
 		// tree states:
@@ -155,32 +219,12 @@ class GC_TracingSystem : GameSystem
 		}
 	}
 	
-	/// performance problem: scrolling back out from high detail causes lag, maybe it's the node queue clear operation
-	// in that case, could try the array based version
 	
 	//! Maintains the quad tree, removing obsolete nodes and adding required nodes.
 	protected void MaintainTree(bool restart)
 	{
 		
-		const int intendedLevel = Math.Round(Math.Log2(m_MapEntity.GetCurrentZoom()) * 1.44269504089 + 8); // 1.44269504089 = 1 / ln(2)
-		
-		// zoom is max 20
-		// for every doubling in zoom, level should increase by 1
-		
-		// level 8 might be about right for zoom 1
-		// 0.25 => 6
-		// 0.5 => 7
-		// 1 => 8
-		// 2 => 9
-		// 4 => 10
-		// 8 => 11
-		// 16 => 12
-		
-		
-		// okay so if i start the tool everything is normal
-		// but if i then move around the map, it explodes (no restart happens yet)
-		
-		// could try returning here after initial generation, to confirm the issue originates here
+		const int intendedLevel = Math.Round(Math.Log(m_MapEntity.GetCurrentZoom()) * 1.44269504089 + 8); // 1.44269504089 = 1 / ln(2)
 		
 		if (restart)
 		{
@@ -307,9 +351,16 @@ class GC_TracingSystem : GameSystem
 			if (!node.m_DrawCommand)
 				node.CreateCommand();
 			node.UpdateColor(m_bShadingMode);
-			node.UpdateVertices(m_MapEntity);
+			UpdateVerticesSingle(node);
 			m_aDrawCommands.Insert(node.m_DrawCommand);
 		}
 	}
-
+	
+	/// performance improvement avenues:
+	//  - vectorize additional operations / move them out of functions into loops
+	//  - a lot of performance cost comes from simply moving draw command vertices around
+	//		i could try not drawing clearly off-screen things, and i could try prioritizing removal of active nodes over addition to keep the amount low when moving the map
+	//	- i could minimize the amount of active nodes by staying active until any children (or below) differ from self. this is probably a big improvement
+	//	- i could stabilize trace cost by using an actual frame time / tick count budget rather than an arbitrary trace count (traces are not equal)
+	
 }

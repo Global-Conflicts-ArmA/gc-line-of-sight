@@ -51,25 +51,6 @@ class GC_QuadNode
 			m_iEntsBlocked++;
 	}
 	
-
-	void UpdateVertices(SCR_MapEntity mapEntity)
-	{
-		int p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y;
-		mapEntity.WorldToScreen(m_fX2, m_fY2, p1x, p1y, true);
-		mapEntity.WorldToScreen(m_fX1, m_fY2, p2x, p2y, true);
-		mapEntity.WorldToScreen(m_fX1, m_fY1, p3x, p3y, true);
-		mapEntity.WorldToScreen(m_fX2, m_fY1, p4x, p4y, true);
-		
-		m_DrawCommand.m_Vertices[0] = p1x;
-		m_DrawCommand.m_Vertices[1] = p1y;
-		m_DrawCommand.m_Vertices[2] = p2x;
-		m_DrawCommand.m_Vertices[3] = p2y;
-		m_DrawCommand.m_Vertices[4] = p3x;
-		m_DrawCommand.m_Vertices[5] = p3y;
-		m_DrawCommand.m_Vertices[6] = p4x;
-		m_DrawCommand.m_Vertices[7] = p4y;
-	}
-	
 	void CreateCommand()
 	{
 		m_DrawCommand = new PolygonDrawCommand();
@@ -85,7 +66,7 @@ class GC_QuadNode
 		else if (mode == GC_ShadingMode.Blacken)
 			m_DrawCommand.m_iColor = ARGBF(anyBlocked * 0.25, 0, 0, 0); // 0 alpha if none blocked, 1 alpha if all blocked
 		else if (mode == GC_ShadingMode.Obstacle && anyBlocked != 0)
-			m_DrawCommand.m_iColor = ARGBF(anyBlocked * 0.125, 1, m_iEntsBlocked * 0.75 / anyBlocked, 0); // red 1, green 0 to 0.75, blue 0 => red to yellow gradient
+			m_DrawCommand.m_iColor = ARGBF(anyBlocked * 0.2, 1, m_iEntsBlocked * 0.75 / anyBlocked, 0); // red 1, green 0 to 0.75, blue 0 => red to yellow gradient
 		else
 			m_DrawCommand.m_iColor = ARGBF(0, 0, 0, 0);
 	}
