@@ -26,8 +26,11 @@ class GC_SimpleQueue<Class T>
 		{
 			item = m_Start.m_Item;
 			m_Start = m_Start.m_Next;
+			
+			if (!m_Start)
+				m_End = null;
 		}
-
+	
 		return item;
 	}
 
@@ -38,7 +41,9 @@ class GC_SimpleQueue<Class T>
 
 	void Clear()
 	{
-		m_Start = null;
+		while (m_Start)
+			m_Start = m_Start.m_Next;
+		
 		m_End = null;
 	}
 }

@@ -179,17 +179,20 @@ FrameWidgetClass {
                     }
                    }
                   }
-                  XComboBoxWidgetClass "{6A656AFC2EB17F72}" {
+                  ButtonWidgetClass "{6A68D20015B68B72}" : "{4B5AE6E64037FFB4}UI/layouts/WidgetLibrary/ComboBox/WLib_ComboBox.layout" {
                    Name "ShadingBox"
-                   Slot LayoutSlot "{6A656AFC2EB17F4B}" {
-                    Padding 0 5 0 5
+                   Slot LayoutSlot "{6A68D20015B68B6A}" {
+                    HorizontalAlign 3
+                    Padding 4 4 4 4
                    }
                    components {
-                    SCR_ComboBoxComponent "{6A66CC0CC9D9FCAE}" {
+                    SCR_ComboBoxComponent "{546B1D464BC32853}" {
+                     m_bUseLabel 0
+                     m_bForceSize 0
+                     m_aElementNames {
+                      "Darken" "Blacken" "Colorize"
+                     }
                     }
-                   }
-                   items {
-                    "Darken" "Blacken" "Obstacle"
                    }
                   }
                   ButtonWidgetClass "{6A656AFC5CB58A59}" {

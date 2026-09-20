@@ -20,8 +20,8 @@ class GC_TracingSystem : GameSystem
 	protected GC_ShadingMode m_bShadingMode = GC_ShadingMode.Darken;
 
 	
-	protected int m_iMaintenanceBudget = 1000;
-	protected int m_iSubdivCost = 100;
+	protected int m_iMaintenanceBudget = 5000;
+	protected int m_iSubdivCost = 50;
 	
 	protected vector m_vSourcePos;
 	protected float m_fTargetOffset;
@@ -47,8 +47,11 @@ class GC_TracingSystem : GameSystem
 		m_MapEntity = SCR_MapEntity.GetMapInstance();
 	}
 	
+	//! Tool starts tracing
 	void ActivateTool(float worldX, float worldY, float sourceOffset, float targetOffset)
 	{
+		DeactivateTool();
+		
 		Print("Activating tracing system");
 		
 		m_vSourcePos = Vector(worldX, Math.Max(0, GetGame().GetWorld().GetSurfaceY(worldX, worldY)) + sourceOffset, worldY);
@@ -60,7 +63,7 @@ class GC_TracingSystem : GameSystem
 		Enable(true);
 	}
 	
-	//! Tool reset (tool or map is closed etc)
+	//! Tool stops tracing
 	void DeactivateTool()
 	{
 		Print("Deactivating tracing system");
@@ -80,9 +83,6 @@ class GC_TracingSystem : GameSystem
 	//! Tool init (tool is opened etc)
 	protected void Init()
 	{
-		if (m_wCanvasWidget)
-   			 m_wCanvasWidget.RemoveFromHierarchy();
-		m_NodeQueue.Clear();
 		m_bMapChanged = true;
 		
 		vector offset = m_MapEntity.Offset();
@@ -156,13 +156,33 @@ class GC_TracingSystem : GameSystem
 	protected void MaintainTree(bool restart)
 	{
 		
-		int intendedLevel = 5;
+		const int intendedLevel = Math.Round(Math.Log2(m_MapEntity.GetCurrentZoom()) * 1.44269504089 + 8); // 1.44269504089 = 1 / ln(2)
+		
+		// zoom is max 20
+		// for every doubling in zoom, level should increase by 1
+		
+		// level 8 might be about right for zoom 1
+		// 0.25 => 6
+		// 0.5 => 7
+		// 1 => 8
+		// 2 => 9
+		// 4 => 10
+		// 8 => 11
+		// 16 => 12
+		
+		
+		// okay so if i start the tool everything is normal
+		// but if i then move around the map, it explodes (no restart happens yet)
+		
+		// could try returning here after initial generation, to confirm the issue originates here
 		
 		if (restart)
 		{
+			Print(restart);
 			m_NodeQueue.Clear();
 			m_NodeQueue.Enqueue(m_QuadTree);
 		}
+		
 		
 		int frameCost = 0;
 		
@@ -177,7 +197,7 @@ class GC_TracingSystem : GameSystem
 		{
 			GC_QuadNode node = m_NodeQueue.Deque();
 			if (!node)
-				break;
+				break; // done
 			
 			frameCost += 1;
 			const bool levelReached = node.m_iLevel >= intendedLevel;
@@ -230,11 +250,8 @@ class GC_TracingSystem : GameSystem
 			}
 			
 		}
-
-		// check if current node has view intersection and further subdivision is required (level)
-		// 	if not, null children and make self active (if not null already). still need to deactivate them though
-		// 	if yes, create q1,q2,q3,q4 and trace them (unless they were already, or trace limit is reached) then activate them and deactivate self
-		// 		then enqueue these nodes
+		
+		// not done probably
 			
 	}
 	

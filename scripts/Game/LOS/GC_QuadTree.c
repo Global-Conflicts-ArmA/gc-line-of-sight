@@ -75,7 +75,7 @@ class GC_QuadNode
 		
 		Color c;
 		if (mode == GC_ShadingMode.Darken)
-			c = Color(0, 0, 0, anyBlocked * 0.125);
+			c = Color(0, 0, 0, anyBlocked * 0.2);
 		else if (mode == GC_ShadingMode.Blacken)
 			c = Color(0, 0, 0, anyBlocked * 0.25); // 0 alpha if none blocked, 1 alpha if all blocked
 		else if (mode == GC_ShadingMode.Obstacle && anyBlocked != 0)

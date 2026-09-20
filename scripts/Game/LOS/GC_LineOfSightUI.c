@@ -26,7 +26,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	protected Widget m_wLineOfSightRoot;
 	protected EditBoxWidget m_wSourceBox;
 	protected EditBoxWidget m_wTargetBox;
-	protected XComboBoxWidget m_wShadingBox;
+	protected ButtonWidget m_wShadingBox;
 	protected ButtonWidget m_wHideButton;
 	protected TextWidget m_wHideText;
 	protected ButtonWidget m_wPositionButton;
@@ -126,6 +126,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		
 		float cursorX, cursorY;
 		m_MapEntity.GetMapCursorWorldPosition(cursorX, cursorY);
+		m_TracingSystem.DeactivateTool();
 		m_TracingSystem.ActivateTool(cursorX, cursorY, m_fSourceOffset, m_fTargetOffset);
 	}
 	
@@ -134,7 +135,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		m_wLineOfSightRoot = GetGame().GetWorkspace().CreateWidgets(GUI_LAYOUT, m_RootWidget);
 		m_wSourceBox = EditBoxWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("SourceBox"));
 		m_wTargetBox = EditBoxWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("TargetBox"));
-		m_wShadingBox = XComboBoxWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("ShadingBox"));
+		m_wShadingBox = ButtonWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("ShadingBox"));
 		m_wHideButton = ButtonWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("HideButton"));
 		m_wHideText = TextWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("HideText"));
 		m_wPositionButton = ButtonWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("PositionButton"));
@@ -195,7 +196,8 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	
 	protected void ComboBoxChanged()
 	{
-		m_TracingSystem.SetShadingMode(m_wShadingBox.GetCurrentItem());
+		SCR_ComboBoxComponent comboBoxComp = SCR_ComboBoxComponent.Cast(m_wShadingBox.FindHandler(SCR_ComboBoxComponent));
+		m_TracingSystem.SetShadingMode(comboBoxComp.GetCurrentIndex());
 	}
 }
 
