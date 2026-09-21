@@ -19,11 +19,13 @@ class GC_TracingSystem : GameSystem
 	//! Shading mode
 	protected GC_ShadingMode m_bShadingMode = GC_ShadingMode.Darken;
 	
+	//! Map item that highlights the current source position
+	protected ref MapItem m_SourceMarker;
+	
 	protected TextWidget m_wStatusWidget;
 
-	
-	protected int m_iMaintenanceBudget = 5000;
-	protected int m_iSubdivCost = 50;
+	//! For how many ms the system may trace per frame. Increases CPU load but speeds up subdivision.
+	protected const int m_iTickBudget = 5;
 	
 	protected vector m_vSourcePos;
 	protected float m_fTargetOffset;
@@ -60,12 +62,39 @@ class GC_TracingSystem : GameSystem
 		
 		Print("Activating tracing system");
 		
+		// Set positions
 		m_vSourcePos = Vector(worldX, Math.Max(0, GetGame().GetWorld().GetSurfaceY(worldX, worldY)) + sourceOffset, worldY);
 		m_fTargetOffset = targetOffset;
 		m_wStatusWidget = status;
 		
-		Init();
+		// Source map item
+		m_SourceMarker = m_MapEntity.CreateCustomMapItem();
+		m_SourceMarker.SetPos(worldX, worldY);
+		m_SourceMarker.SetBaseType(EMapDescriptorType.MDT_VIEWPOINT);
+		m_SourceMarker.SetImageDef("view-point");
+		MapDescriptorProps props = m_SourceMarker.GetProps();
+		props.SetFrontColor(Color.FromInt(Color.DARK_YELLOW));
+		props.SetBackgroundColor(Color.FromInt(Color.BLACK));
+		props.SetIconSize(1, 0.25, 4);
+		props.Activate(true);
+		m_SourceMarker.SetProps(props);
 		
+		// Init quadtree
+		vector offset = m_MapEntity.Offset();
+		vector size = m_MapEntity.Size();
+		m_QuadTree = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, 0, offset[0], offset[0] + size[0], offset[2], offset[2] + size[2]);
+		ActivateNode(m_QuadTree);
+		
+		// Canvas widget
+		Widget mapFrame = m_MapEntity.GetMapMenuRoot().FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME);
+		if (!mapFrame)
+			mapFrame = m_MapEntity.GetMapMenuRoot();
+		if (!mapFrame)
+			 return;
+		m_wCanvasWidget = CanvasWidget.Cast(GetGame().GetWorkspace().CreateWidgets("{F928661E727CC638}UI/Map/GC_LOSCanvas.layout", mapFrame));
+		m_wCanvasWidget.SetDrawCommands(m_aDrawCommands);
+		
+		m_bMapChanged = true;
 		
 		Enable(true);
 	}
@@ -87,27 +116,10 @@ class GC_TracingSystem : GameSystem
 		m_vPreviousPan = vector.Zero;
 		m_fPreviousZoom = 0;
 		
+		if (m_SourceMarker)
+			m_SourceMarker.Recycle();
+		
 		Enable(false);
-	}
-	
-	//! Tool init (tool is opened etc)
-	protected void Init()
-	{
-		m_bMapChanged = true;
-		
-		vector offset = m_MapEntity.Offset();
-		vector size = m_MapEntity.Size();
-		m_QuadTree = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, 0, offset[0], offset[0] + size[0], offset[2], offset[2] + size[2]);
-		ActivateNode(m_QuadTree);
-		
-		Widget mapFrame = m_MapEntity.GetMapMenuRoot().FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME);
-		if (!mapFrame)
-			mapFrame = m_MapEntity.GetMapMenuRoot();
-		if (!mapFrame)
-			 return;
-		
-		m_wCanvasWidget = CanvasWidget.Cast(GetGame().GetWorkspace().CreateWidgets("{F928661E727CC638}UI/Map/GC_LOSCanvas.layout", mapFrame));
-		m_wCanvasWidget.SetDrawCommands(m_aDrawCommands);
 	}
 	
 	//! Frame update event
@@ -233,6 +245,7 @@ class GC_TracingSystem : GameSystem
 			m_NodeQueue.Enqueue(m_QuadTree);
 		}
 		
+		const int endTickCount = System.GetTickCount() + m_iTickBudget;
 		
 		int frameCost = 0;
 		
@@ -243,7 +256,7 @@ class GC_TracingSystem : GameSystem
 		const float frameY1 = frameMin[2];
 		const float frameY2 = frameMax[2];
 
-		while (frameCost < m_iMaintenanceBudget)
+		while (endTickCount > System.GetTickCount())
 		{
 			GC_QuadNode node = m_NodeQueue.Deque();
 			if (!node)
@@ -251,7 +264,7 @@ class GC_TracingSystem : GameSystem
 			
 			frameCost += 1;
 			const bool levelReached = node.m_iLevel >= intendedLevel;
-			const bool intersection = GC_TracingHelper.BboxIntersects(frameX1, frameX2, frameY1, frameY2, node.m_fX1, node.m_fX2, node.m_fY1, node.m_fY2);
+			const bool intersection = BboxIntersects(frameX1, frameX2, frameY1, frameY2, node.m_fX1, node.m_fX2, node.m_fY1, node.m_fY2);
 			const bool hasChildren = node.m_Q1 != null;
 			
 			
@@ -272,9 +285,6 @@ class GC_TracingSystem : GameSystem
 			{
 				if (!hasChildren)
 				{
-					// create and activate children, deactivate self
-					frameCost += m_iSubdivCost;
-					
 					float midX = node.m_fX1 + (node.m_fX2 - node.m_fX1) / 2;
 					float midY = node.m_fY1 + (node.m_fY2 - node.m_fY1) / 2;
 					
@@ -354,6 +364,12 @@ class GC_TracingSystem : GameSystem
 			UpdateVerticesSingle(node);
 			m_aDrawCommands.Insert(node.m_DrawCommand);
 		}
+	}
+	
+	//! Receives 2 bounding boxes and checks for intersection (2 must be greater than 1)
+	static bool BboxIntersects(float ax1, float ax2, float ay1, float ay2, float bx1, float bx2, float by1, float by2)
+	{
+		return ax2 > bx1 && ax1 < bx2 && ay2 > by1 && ay1 < by2;
 	}
 	
 	/// performance improvement avenues:

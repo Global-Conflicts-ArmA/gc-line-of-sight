@@ -17,6 +17,8 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	protected float m_fSourceOffset = 1.5;
 	protected float m_fTargetOffset = 0.5;
 	
+	protected float m_fSourceX, m_fSourceY;
+	
 	protected const ResourceName GUI_LAYOUT = "{B4D66F006C21C69E}UI/layouts/Menus/DeployMenu/GC_LineOfSightSettings.layout";
 	protected const ResourceName TOOL_IMAGESET = "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset";
 	protected const string TOOL_ICON = "terrainIcon";
@@ -37,6 +39,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	protected bool m_bSystemActive = false;
 	
 	protected bool m_bHidePolygons = false;
+	protected bool m_ShadingMode = GC_ShadingMode.Darken;
 	
 	
 	override void Init()
@@ -125,6 +128,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	{
 		m_bAwaitingInputClick = false;
 		GetGame().GetInputManager().RemoveActionListener("MapSelect", EActionTrigger.DOWN, OnInputClick);
+		m_wPositionText.SetText("New position");
 	}
 	
 	protected void OnInputClick(float value, EActionTrigger reason)
@@ -133,9 +137,8 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		
 		SCR_UISoundEntity.SoundEvent(SCR_SoundEvent.SOUND_MAP_GADGET_MARKER_DRAW_START);
 		
-		float cursorX, cursorY;
-		m_MapEntity.GetMapCursorWorldPosition(cursorX, cursorY);
-		m_TracingSystem.ActivateTool(cursorX, cursorY, m_fSourceOffset, m_fTargetOffset, m_wStatusText);
+		m_MapEntity.GetMapCursorWorldPosition(m_fSourceX, m_fSourceY);
+		m_TracingSystem.ActivateTool(m_fSourceX, m_fSourceY, m_fSourceOffset, m_fTargetOffset, m_wStatusText);
 		m_bSystemActive = true;
 	}
 	
@@ -158,23 +161,13 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		positionButtonComp.m_OnClicked.Insert(PositionButtonClicked);
 		
 		EditBoxFilterComponent sourceBoxFilterComp = EditBoxFilterComponent.Cast(m_wSourceBox.FindHandler(EditBoxFilterComponent));
-		sourceBoxFilterComp.m_OnValidInput.Insert(SourceBoxInput);
+		sourceBoxFilterComp.m_OnValidInput.Insert(OffsetBoxInput);
 		
 		EditBoxFilterComponent targetBoxFilterComp = EditBoxFilterComponent.Cast(m_wTargetBox.FindHandler(EditBoxFilterComponent));
-		targetBoxFilterComp.m_OnValidInput.Insert(TargetBoxInput);
+		targetBoxFilterComp.m_OnValidInput.Insert(OffsetBoxInput);
 		
 		SCR_ComboBoxComponent comboBoxComp = SCR_ComboBoxComponent.Cast(m_wShadingBox.FindHandler(SCR_ComboBoxComponent));
 		comboBoxComp.m_OnChanged.Insert(ComboBoxChanged);
-	}
-	
-	protected void HideButtonClicked()
-	{
-		m_bHidePolygons = !m_bHidePolygons;
-		if (m_bHidePolygons)
-			m_wHideText.SetText("Unhide");
-		else
-			m_wHideText.SetText("Hide");
-		// tell system to update visibility (maybe via color)
 	}
 	
 	protected void PositionButtonClicked()
@@ -185,34 +178,60 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 			StopAwaitInput();
 	}
 	
-	protected void SourceBoxInput()
+	protected void OffsetBoxInput()
 	{
-		string text = m_wSourceBox.GetText();
-		if (!text)
+		const string sourceText = m_wSourceBox.GetText();
+		const string targetText = m_wTargetBox.GetText();
+		
+		if (!sourceText || !targetText)
 			return;
-		float height = text.ToFloat(-1);
-		Print(height);
-		if (height < 0)
+		
+		float sourceValue = sourceText.ToFloat(-1);
+		float targetValue = targetText.ToFloat(-1);
+		
+		if (sourceValue < 0 || targetValue < 0)
 		{
 			m_wSourceBox.SetText(m_fSourceOffset.ToString());
+			m_wTargetBox.SetText(m_fTargetOffset.ToString());
 			return;
 		}
-		// regenerate
+		
+		m_fSourceOffset = sourceValue;
+		m_fTargetOffset = targetValue;
+		
+		if (m_bSystemActive)
+			m_TracingSystem.ActivateTool(m_fSourceX, m_fSourceY, m_fSourceOffset, m_fTargetOffset, m_wStatusText);
 	}
 	
-	protected void TargetBoxInput()
+	protected void HideButtonClicked()
 	{
+		m_bHidePolygons = !m_bHidePolygons;
+		if (m_bHidePolygons)
+			m_wHideText.SetText("Unhide");
+		else
+			m_wHideText.SetText("Hide");
+		UpdateColor();
 	}
 	
 	protected void ComboBoxChanged()
 	{
 		SCR_ComboBoxComponent comboBoxComp = SCR_ComboBoxComponent.Cast(m_wShadingBox.FindHandler(SCR_ComboBoxComponent));
-		m_TracingSystem.SetShadingMode(comboBoxComp.GetCurrentIndex());
+		m_ShadingMode = comboBoxComp.GetCurrentIndex() + 1;
+		UpdateColor();
+	}
+	
+	protected void UpdateColor()
+	{
+		if (m_bHidePolygons)
+			m_TracingSystem.SetShadingMode(GC_ShadingMode.Hide);
+		else
+			m_TracingSystem.SetShadingMode(m_ShadingMode);
 	}
 }
 
 enum GC_ShadingMode // must have same order as layout entries
 {
+	Hide,
 	Darken,
 	Blacken,
 	Obstacle

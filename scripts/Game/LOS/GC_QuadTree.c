@@ -45,10 +45,24 @@ class GC_QuadNode
 	protected void SingleTrace(BaseWorld world, vector fromPos, float toOffset, float to1, float to2)
 	{
 		const vector toPos = Vector(to1, Math.Max(0, world.GetSurfaceY(to1, to2)) + toOffset, to2);
-		if (GC_TracingHelper.SightBlocked(world, fromPos, toPos, TraceFlags.WORLD, EPhysicsLayerDefs.Terrain))
+		if (SightBlocked(world, fromPos, toPos, TraceFlags.WORLD, EPhysicsLayerDefs.Terrain))
 			m_iTerrBlocked++;
-		else if (GC_TracingHelper.SightBlocked(world, fromPos, toPos, TraceFlags.ENTS, EPhysicsLayerDefs.ViewGeometry))
+		else if (SightBlocked(world, fromPos, toPos, TraceFlags.ENTS, EPhysicsLayerDefs.ViewGeometry))
 			m_iEntsBlocked++;
+	}
+	
+	static bool SightBlocked(BaseWorld world, vector fromPos, vector toPos, TraceFlags flags, EPhysicsLayerDefs layer, float tolerance = 1.0)
+	{
+		TraceParam trace = new TraceParam();
+		trace.Start = fromPos;
+		trace.End = toPos;
+		trace.Flags = flags;
+		trace.TargetLayers = layer;
+		
+		float frac = world.TraceMove(trace);
+		float dist = vector.Distance(trace.Start, trace.End);
+		
+		return (frac < (dist - tolerance) / dist);
 	}
 	
 	void CreateCommand()
