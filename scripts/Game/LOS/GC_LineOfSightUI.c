@@ -103,7 +103,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		toolButton.GetScreenPos(buttonPosX, buttonPosY);
 		toolButton.GetScreenSize(buttonSizeX, buttonSizeY);
 		
-		FrameSlot.SetPosY(m_wLineOfSightRoot, workspace.DPIUnscale(buttonPosY - buttonSizeY + 0));  // improve positioning
+		FrameSlot.SetPosY(m_wLineOfSightRoot, workspace.DPIUnscale(buttonPosY - buttonSizeY + 40));  // improve positioning
 		FrameSlot.SetPosX(m_wLineOfSightRoot, workspace.DPIUnscale(buttonPosX + buttonSizeX));
 	}
 	
@@ -223,6 +223,9 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 			m_ShadingMode = GC_ShadingMode.Blacken;
 		else if (selection == "Colorize")
 			m_ShadingMode = GC_ShadingMode.Obstacle;
+		else if (selection == "Debug")
+			m_ShadingMode = GC_ShadingMode.DebugVis;
+		
 		
 		UpdateColor();
 	}
@@ -241,5 +244,6 @@ enum GC_ShadingMode // must have same order as layout entries
 	Hide,
 	Darken,
 	Blacken,
-	Obstacle
+	Obstacle,
+	DebugVis
 }

@@ -84,6 +84,8 @@ class GC_QuadNode
 			m_DrawCommand.m_iColor = ARGBF(anyBlocked * 0.25, 0, 0, 0); // 0 alpha if none blocked, 1 alpha if all blocked
 		else if (mode == GC_ShadingMode.Obstacle && anyBlocked != 0)
 			m_DrawCommand.m_iColor = ARGBF(anyBlocked * 0.2, 1, m_iEntsBlocked * 0.75 / anyBlocked, 0); // red 1, green 0 to 0.75, blue 0 => red to yellow gradient
+		else if (mode == GC_ShadingMode.DebugVis)
+			m_DrawCommand.m_iColor = ARGBF(0.5, Math.RandomFloat01(), Math.RandomFloat01(), Math.RandomFloat01());
 		else
 			m_DrawCommand.m_iColor = ARGBF(0, 0, 0, 0);
 	}

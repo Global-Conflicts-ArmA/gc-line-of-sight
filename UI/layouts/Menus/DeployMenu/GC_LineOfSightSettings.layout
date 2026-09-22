@@ -190,7 +190,7 @@ FrameWidgetClass {
                      m_bUseLabel 0
                      m_bForceSize 0
                      m_aElementNames {
-                      "Darken" "Blacken" "Colorize"
+                      "Darken" "Blacken" "Colorize" "Debug"
                      }
                     }
                    }
@@ -235,7 +235,7 @@ FrameWidgetClass {
                   }
                   TextWidgetClass "{6A68D23CB74F13DD}" {
                    Name "Status"
-                   Slot LayoutSlot {
+                   Slot LayoutSlot "{6A6D44F579A8B088}" {
                     HorizontalAlign 1
                    }
                    Text "Status"

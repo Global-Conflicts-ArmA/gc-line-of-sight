@@ -426,12 +426,11 @@ class GC_TracingSystem : GameSystem
 	//  - a lot of performance cost comes from simply moving draw command vertices around
 	//		i could try not drawing clearly off-screen things, and i could try prioritizing removal of active nodes over addition to keep the amount low when moving the map
 	//		ccould also consider some way to just not process vertices of invisible nodes (i. e. 0 alpha)
-	//	- i could minimize the amount of active nodes by staying active until any children (or below) differ from self. this is probably a big improvement
 	//  - zooming out from high res fast is currently still a big problem. there needs to be a way to deactivate these nodes earlier.
 	
 	
+	// okay so, thing 2.
+	
+	
 	// make marker smaller
-	
-	
-	// if i want differ activation, i could go with a "bubble up" kind of algorithm
 }
