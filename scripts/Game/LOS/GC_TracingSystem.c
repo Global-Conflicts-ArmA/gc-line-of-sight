@@ -27,6 +27,8 @@ class GC_TracingSystem : GameSystem
 	//! For how many ms the system may trace per frame. Increases CPU load but speeds up subdivision.
 	protected const int m_iTickBudget = 5;
 	
+	protected const int m_iQuadWidth = 150;
+	
 	protected vector m_vSourcePos;
 	protected float m_fTargetOffset;
 	
@@ -236,8 +238,6 @@ class GC_TracingSystem : GameSystem
 	protected void MaintainTree(bool restart)
 	{
 		
-		const int intendedLevel = Math.Round(Math.Log(m_MapEntity.GetCurrentZoom()) * 1.44269504089 + 8); // 1.44269504089 = 1 / ln(2)
-		
 		if (restart)
 		{
 			Print(restart);
@@ -255,6 +255,11 @@ class GC_TracingSystem : GameSystem
 		const float frameX2 = frameMax[0];
 		const float frameY1 = frameMin[2];
 		const float frameY2 = frameMax[2];
+		
+		const float targetMeters = Math.Max(1, (frameX2 - frameX1) / m_iQuadWidth); // e. g. 10m, no less than 1m
+		const int intendedLevel = Math.Round(Math.Log2(m_MapEntity.GetMapSizeX() / targetMeters));
+		// e. g. 4000m => 2000m => 1000m => 500m => 250m => 125m => 62.5m => 31.25m => 15.125m => 7m
+		
 
 		while (endTickCount > System.GetTickCount())
 		{
@@ -376,7 +381,13 @@ class GC_TracingSystem : GameSystem
 	//  - vectorize additional operations / move them out of functions into loops
 	//  - a lot of performance cost comes from simply moving draw command vertices around
 	//		i could try not drawing clearly off-screen things, and i could try prioritizing removal of active nodes over addition to keep the amount low when moving the map
+	//		ccould also consider some way to just not process vertices of invisible nodes (i. e. 0 alpha)
 	//	- i could minimize the amount of active nodes by staying active until any children (or below) differ from self. this is probably a big improvement
-	//	- i could stabilize trace cost by using an actual frame time / tick count budget rather than an arbitrary trace count (traces are not equal)
+	//  - zooming out from high res fast is currently still a big problem. there needs to be a way to deactivate these nodes earlier.
 	
+	
+	// make marker smaller
+	
+	
+	// if i want differ activation, i could go with a "bubble up" kind of algorithm
 }

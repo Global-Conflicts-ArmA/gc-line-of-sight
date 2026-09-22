@@ -39,7 +39,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	protected bool m_bSystemActive = false;
 	
 	protected bool m_bHidePolygons = false;
-	protected bool m_ShadingMode = GC_ShadingMode.Darken;
+	protected GC_ShadingMode m_ShadingMode = GC_ShadingMode.Darken;
 	
 	
 	override void Init()
@@ -62,8 +62,6 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	protected void ToolButtonClicked()
 	{
 		m_bToolActive = !m_bToolActive;
-		
-		// while active, also display settings ui
 		
 		m_ToolMenuEntry.SetActive(m_bToolActive);
 		
@@ -105,7 +103,8 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		toolButton.GetScreenPos(buttonPosX, buttonPosY);
 		toolButton.GetScreenSize(buttonSizeX, buttonSizeY);
 		
-		FrameSlot.SetPosY(m_wLineOfSightRoot, workspace.DPIUnscale(buttonPosY - buttonSizeY + 200));
+		FrameSlot.SetPosY(m_wLineOfSightRoot, workspace.DPIUnscale(buttonPosY - buttonSizeY + 0));  // improve positioning
+		FrameSlot.SetPosX(m_wLineOfSightRoot, workspace.DPIUnscale(buttonPosX + buttonSizeX));
 	}
 	
 	override void OnMapClose(MapConfiguration config)
@@ -216,7 +215,15 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	protected void ComboBoxChanged()
 	{
 		SCR_ComboBoxComponent comboBoxComp = SCR_ComboBoxComponent.Cast(m_wShadingBox.FindHandler(SCR_ComboBoxComponent));
-		m_ShadingMode = comboBoxComp.GetCurrentIndex() + 1;
+		
+		string selection = comboBoxComp.GetCurrentItem();
+		if (selection == "Darken")
+			m_ShadingMode = GC_ShadingMode.Darken;
+		else if (selection == "Blacken")
+			m_ShadingMode = GC_ShadingMode.Blacken;
+		else if (selection == "Colorize")
+			m_ShadingMode == GC_ShadingMode.Obstacle;
+		
 		UpdateColor();
 	}
 	
