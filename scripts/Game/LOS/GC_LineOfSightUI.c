@@ -222,7 +222,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		else if (selection == "Blacken")
 			m_ShadingMode = GC_ShadingMode.Blacken;
 		else if (selection == "Colorize")
-			m_ShadingMode == GC_ShadingMode.Obstacle;
+			m_ShadingMode = GC_ShadingMode.Obstacle;
 		
 		UpdateColor();
 	}

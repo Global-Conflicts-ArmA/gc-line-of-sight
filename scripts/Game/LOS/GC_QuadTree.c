@@ -1,7 +1,7 @@
 class GC_QuadNode
 {	
-	protected int m_iEntsBlocked;
-	protected int m_iTerrBlocked;
+	int m_iEntsBlocked;
+	int m_iTerrBlocked;
 
 	//! Node bounds
 	float m_fX1;
@@ -20,11 +20,14 @@ class GC_QuadNode
 	ref GC_QuadNode m_Q3;
 	ref GC_QuadNode m_Q4;
 	
+	GC_QuadNode m_Parent; // no strong ref!
+	
 	ref PolygonDrawCommand m_DrawCommand;
 
 
-	void GC_QuadNode(vector fromPos, float toOffset, int level, float x1, float x2, float y1, float y2)
+	void GC_QuadNode(GC_QuadNode parent, vector fromPos, float toOffset, int level, float x1, float x2, float y1, float y2)
 	{
+		m_Parent = parent;
 		m_iLevel = level;
 		m_fX1 = x1;
 		m_fX2 = x2;

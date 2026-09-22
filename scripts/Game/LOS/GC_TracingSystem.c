@@ -75,7 +75,7 @@ class GC_TracingSystem : GameSystem
 		m_SourceMarker.SetBaseType(EMapDescriptorType.MDT_VIEWPOINT);
 		m_SourceMarker.SetImageDef("view-point");
 		MapDescriptorProps props = m_SourceMarker.GetProps();
-		props.SetFrontColor(Color.FromInt(Color.DARK_YELLOW));
+		props.SetFrontColor(Color.FromInt(Color.BLACK));
 		props.SetBackgroundColor(Color.FromInt(Color.BLACK));
 		props.SetIconSize(1, 0.25, 4);
 		props.Activate(true);
@@ -84,7 +84,7 @@ class GC_TracingSystem : GameSystem
 		// Init quadtree
 		vector offset = m_MapEntity.Offset();
 		vector size = m_MapEntity.Size();
-		m_QuadTree = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, 0, offset[0], offset[0] + size[0], offset[2], offset[2] + size[2]);
+		m_QuadTree = new GC_QuadNode(null, m_vSourcePos, m_fTargetOffset, 0, offset[0], offset[0] + size[0], offset[2], offset[2] + size[2]);
 		ActivateNode(m_QuadTree);
 		
 		// Canvas widget
@@ -275,15 +275,15 @@ class GC_TracingSystem : GameSystem
 			
 			if (levelReached || !intersection)
 			{
-				// null + deactivate children, make self active
+				// null + deactivate children, make self active (BUT ONLY SELF EVEN HAD ACTIVE CHILDREN)
 				if (hasChildren)
 				{
-					DeactivateChildren(node);
+					if (DeactivateChildren(node))
+						ActivateNode(node);
 					node.m_Q1 = null;
 					node.m_Q2 = null;
 					node.m_Q3 = null;
 					node.m_Q4 = null;
-					ActivateNode(node);
 				}
 			}
 			else
@@ -296,16 +296,34 @@ class GC_TracingSystem : GameSystem
 					//  II   I
 					// III  IV
 					
-					node.m_Q1 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, node.m_iLevel + 1, midX, node.m_fX2, midY, node.m_fY2);
-					node.m_Q2 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, node.m_iLevel + 1, node.m_fX1, midX, midY, node.m_fY2);
-					node.m_Q3 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, node.m_iLevel + 1, node.m_fX1, midX, node.m_fY1, midY);
-					node.m_Q4 = new GC_QuadNode(m_vSourcePos, m_fTargetOffset, node.m_iLevel + 1, midX, node.m_fX2, node.m_fY1, midY);
+					node.m_Q1 = new GC_QuadNode(node, m_vSourcePos, m_fTargetOffset, node.m_iLevel + 1, midX, node.m_fX2, midY, node.m_fY2);
+					node.m_Q2 = new GC_QuadNode(node, m_vSourcePos, m_fTargetOffset, node.m_iLevel + 1, node.m_fX1, midX, midY, node.m_fY2);
+					node.m_Q3 = new GC_QuadNode(node, m_vSourcePos, m_fTargetOffset, node.m_iLevel + 1, node.m_fX1, midX, node.m_fY1, midY);
+					node.m_Q4 = new GC_QuadNode(node, m_vSourcePos, m_fTargetOffset, node.m_iLevel + 1, midX, node.m_fX2, node.m_fY1, midY);
 					
-					DeactivateNode(node);
-					ActivateNode(node.m_Q1);
-					ActivateNode(node.m_Q2);
-					ActivateNode(node.m_Q3);
-					ActivateNode(node.m_Q4);
+					// Check if any differences to current node
+					const int eB = node.m_iEntsBlocked;
+					const int tB = node.m_iTerrBlocked;
+					const bool diff = 	node.m_Q1.m_iEntsBlocked != eB || node.m_Q2.m_iEntsBlocked != eB || node.m_Q3.m_iEntsBlocked != eB || node.m_Q4.m_iEntsBlocked != eB
+									||	node.m_Q1.m_iTerrBlocked != tB || node.m_Q2.m_iTerrBlocked != tB || node.m_Q3.m_iTerrBlocked != tB || node.m_Q4.m_iTerrBlocked != tB;
+					
+					if (diff)
+					{
+						// upper siblings until active node is reached, then deactivate it
+						GC_QuadNode n = node;
+						while (n.m_iActiveIndex < 0)
+						{
+							ActivateSiblings(n);
+							n = n.m_Parent;
+						}
+						DeactivateNode(n);
+						
+						// activate own children
+						ActivateNode(node.m_Q1);
+						ActivateNode(node.m_Q2);
+						ActivateNode(node.m_Q3);
+						ActivateNode(node.m_Q4);
+					}
 				}
 				// enqueue children
 				m_NodeQueue.Enqueue(node.m_Q1);
@@ -316,12 +334,18 @@ class GC_TracingSystem : GameSystem
 			
 		}
 		
-		// not done probably
+		// only activate children with they disagree, else just enqueue them
+		// if so, run activate method/loop, else do nothing
+		//	which traverses upwards, activating siblings at each level until reaching an active node and deactivating it
+		//	checking child disagreement is easy because you can just check against self (because if self is not the same as parent, self must be active anyway)
 			
 	}
 	
-	void DeactivateChildren(GC_QuadNode node)
+	//! Traverses downwards, deactivating all children. Return whether it had any active children.
+	bool DeactivateChildren(GC_QuadNode node)
 	{
+		bool hadActiveChildren = false;
+		
 		SCR_Stack<GC_QuadNode> nodeStack = new SCR_Stack<GC_QuadNode>;
 		nodeStack.Push(node.m_Q1);
 		nodeStack.Push(node.m_Q2);
@@ -339,8 +363,13 @@ class GC_TracingSystem : GameSystem
 				nodeStack.Push(node.m_Q4);
 			}
 			if (node.m_iActiveIndex >= 0)
+			{
+				hadActiveChildren = true;
 				DeactivateNode(node);
+			}
 		}
+		
+		return hadActiveChildren;
 	}
 
 	void DeactivateNode(GC_QuadNode node)
@@ -375,6 +404,21 @@ class GC_TracingSystem : GameSystem
 	static bool BboxIntersects(float ax1, float ax2, float ay1, float ay2, float bx1, float bx2, float by1, float by2)
 	{
 		return ax2 > bx1 && ax1 < bx2 && ay2 > by1 && ay1 < by2;
+	}
+	
+	
+	//! Activates all siblings, but not self
+	protected void ActivateSiblings(GC_QuadNode node)
+	{
+		GC_QuadNode parent = node.m_Parent;
+		if (parent.m_Q1 != node)
+			ActivateNode(parent.m_Q1);
+		if (parent.m_Q2 != node)
+			ActivateNode(parent.m_Q2);
+		if (parent.m_Q3 != node)
+			ActivateNode(parent.m_Q3);
+		if (parent.m_Q4 != node)
+			ActivateNode(parent.m_Q4);
 	}
 	
 	/// performance improvement avenues:
