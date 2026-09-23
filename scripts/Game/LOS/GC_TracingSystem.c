@@ -357,11 +357,6 @@ class GC_TracingSystem : GameSystem
 			
 		}
 		
-		// only activate children with they disagree, else just enqueue them
-		// if so, run activate method/loop, else do nothing
-		//	which traverses upwards, activating siblings at each level until reaching an active node and deactivating it
-		//	checking child disagreement is easy because you can just check against self (because if self is not the same as parent, self must be active anyway)
-			
 	}
 	
 	//! Traverses downwards, deactivating all children. Return whether it had any active children.

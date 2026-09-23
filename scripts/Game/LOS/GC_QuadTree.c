@@ -95,5 +95,6 @@ class GC_QuadNode
 			m_DrawCommand.m_iColor = ARGBF(0, 0, 0, 0);
 		
 		m_bTransparentColor = (m_DrawCommand.m_iColor >> 24) & 0xFF == 0; // alpha is 0
+		// maybe instead remove all vertices?
 	}
 }
