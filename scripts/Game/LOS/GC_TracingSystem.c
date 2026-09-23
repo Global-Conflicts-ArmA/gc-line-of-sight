@@ -173,10 +173,8 @@ class GC_TracingSystem : GameSystem
 	
 		foreach (GC_QuadNode node : m_aActiveNodes)
 		{
-			if (frameX2 > node.m_fX1 && frameX1 < node.m_fX2 && frameY2 > node.m_fY1 && frameY1 < node.m_fY2 && !node.m_bTransparentColor) // is the overhead worth it? not sure
-			{
-				// simply not recalculating them is insufficient, because it means they get stuck on the edge of the screen, they have to be removed as well
-				
+			if (!node.m_bTransparentColor)
+			{	
 				const float x1 = (node.m_fX1 - offsetX) * zoom + panX;
 				const float x2 = (node.m_fX2 - offsetX) * zoom + panX;
 				const float y1 = (offsetY - node.m_fY1) * zoom + panY;
@@ -399,22 +397,14 @@ class GC_TracingSystem : GameSystem
 
 	void DeactivateNode(GC_QuadNode node)
 	{
-		const int activeIndex = node.m_iActiveIndex;
-		if (activeIndex >= 0)
+		const int index = node.m_iActiveIndex;
+		if (index >= 0)
 		{
 			node.m_iActiveIndex = -1;
-			m_aActiveNodes.Remove(activeIndex);
-			if (activeIndex < m_aActiveNodes.Count())
-				m_aActiveNodes[activeIndex].m_iActiveIndex = activeIndex;
-		}
-		
-		const int commandIndex = node.m_iCommandIndex;
-		if (commandIndex >= 0)
-		{
-			node.m_iCommandIndex = -1;
-			m_aDrawCommands.Remove(commandIndex);
-			if (commandIndex < m_aDrawCommands.Count())
-				m_aActiveNodes[commandIndex].m_iCommandIndex = commandIndex;
+			m_aActiveNodes.Remove(index);
+			m_aDrawCommands.Remove(index);
+			if (index < m_aActiveNodes.Count())
+				m_aActiveNodes[index].m_iActiveIndex = index;
 		}
 	}
 
@@ -427,9 +417,8 @@ class GC_TracingSystem : GameSystem
 			if (!node.m_DrawCommand)
 				node.CreateCommand();
 			node.UpdateColor(m_bShadingMode);
+			m_aDrawCommands.Insert(node.m_DrawCommand);
 			UpdateVerticesSingle(node);
-			
-			node.m_iCommandIndex = m_aDrawCommands.Insert(node.m_DrawCommand);
 		}
 	}
 	
