@@ -429,7 +429,14 @@ class GC_TracingSystem : GameSystem
 	//  - zooming out from high res fast is currently still a big problem. there needs to be a way to deactivate these nodes earlier.
 	
 	
-	// okay so, thing 2.
+	// okay so
+	// not drawing offscreen or transparent things requires adding some mode for it, other than active.
+	// maybe a "visible" toggle on the node, which removes all vertices instead of calculating them.
+	// if i wanted to remove the draw command entirely, i could no longer treat it as having the same index as in the active array, but i could just add another field in the node for it
+	// reasons for nodes to be active but invisible: currently offscreen, transparent color / hidden
+	// so node invisibility would be always determined when moving the map (vertex calculation), and also whenever the color is updated
+	// node invisibility would be taken into account by updatevertices, which should only update if the node isn't invisible
+	// also need to think about reinserting e. g. when hide status changes
 	
 	
 	// make marker smaller
