@@ -34,6 +34,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 	protected ButtonWidget m_wPositionButton;
 	protected TextWidget m_wPositionText;
 	protected TextWidget m_wStatusText;
+	protected ButtonWidget m_wResolutionSlider;
 	
 	protected bool m_bAwaitingInputClick = false;
 	protected bool m_bSystemActive = false;
@@ -152,6 +153,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		m_wPositionButton = ButtonWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("PositionButton"));
 		m_wPositionText = TextWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("PositionText"));
 		m_wStatusText = TextWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("Status"));
+		m_wResolutionSlider = ButtonWidget.Cast(m_wLineOfSightRoot.FindAnyWidget("ResolutionSlider"));
 		
 		SCR_ButtonComponent hideButtonComp = SCR_ButtonComponent.Cast(m_wHideButton.FindHandler(SCR_ButtonComponent));
 		hideButtonComp.m_OnClicked.Insert(HideButtonClicked);
@@ -167,6 +169,9 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		
 		SCR_ComboBoxComponent comboBoxComp = SCR_ComboBoxComponent.Cast(m_wShadingBox.FindHandler(SCR_ComboBoxComponent));
 		comboBoxComp.m_OnChanged.Insert(ComboBoxChanged);
+		
+		SCR_SliderComponent sliderComp = SCR_SliderComponent.Cast(m_wResolutionSlider.FindHandler(SCR_SliderComponent));
+		sliderComp.m_OnChanged.Insert(ResolutionSliderChanged);
 	}
 	
 	protected void PositionButtonClicked()
@@ -210,6 +215,12 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		else
 			m_wHideText.SetText("Hide");
 		UpdateColor();
+	}
+	
+	protected void ResolutionSliderChanged()
+	{
+		SCR_SliderComponent sliderComp = SCR_SliderComponent.Cast(m_wResolutionSlider.FindHandler(SCR_SliderComponent));
+		m_TracingSystem.SetResolutionMultiplier(sliderComp.GetValue());
 	}
 	
 	protected void ComboBoxChanged()

@@ -15,6 +15,9 @@ class GC_QuadNode
 	//! Index in list of active nodes
 	int m_iActiveIndex = -1;
 	
+	//! Index in list of draw commands
+	int m_iCommandIndex = -1;
+	
 	ref GC_QuadNode m_Q1;
 	ref GC_QuadNode m_Q2;
 	ref GC_QuadNode m_Q3;
@@ -23,6 +26,8 @@ class GC_QuadNode
 	GC_QuadNode m_Parent; // no strong ref!
 	
 	ref PolygonDrawCommand m_DrawCommand;
+	
+	bool m_bTransparentColor;
 
 
 	void GC_QuadNode(GC_QuadNode parent, vector fromPos, float toOffset, int level, float x1, float x2, float y1, float y2)
@@ -83,10 +88,12 @@ class GC_QuadNode
 		else if (mode == GC_ShadingMode.Blacken)
 			m_DrawCommand.m_iColor = ARGBF(anyBlocked * 0.25, 0, 0, 0); // 0 alpha if none blocked, 1 alpha if all blocked
 		else if (mode == GC_ShadingMode.Obstacle && anyBlocked != 0)
-			m_DrawCommand.m_iColor = ARGBF(anyBlocked * 0.2, 1, m_iEntsBlocked * 0.75 / anyBlocked, 0); // red 1, green 0 to 0.75, blue 0 => red to yellow gradient
+			m_DrawCommand.m_iColor = ARGBF(anyBlocked * 0.15, 1, m_iEntsBlocked * 0.75 / anyBlocked, 0); // red 1, green 0 to 0.75, blue 0 => red to yellow gradient
 		else if (mode == GC_ShadingMode.DebugVis)
 			m_DrawCommand.m_iColor = ARGBF(0.5, Math.RandomFloat01(), Math.RandomFloat01(), Math.RandomFloat01());
 		else
 			m_DrawCommand.m_iColor = ARGBF(0, 0, 0, 0);
+		
+		m_bTransparentColor = (m_DrawCommand.m_iColor >> 24) & 0xFF == 0; // alpha is 0
 	}
 }

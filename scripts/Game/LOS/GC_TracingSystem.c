@@ -34,7 +34,9 @@ class GC_TracingSystem : GameSystem
 	
 	protected vector m_vPreviousPan;
 	protected float m_fPreviousZoom;
-	protected bool m_bMapChanged;
+	protected bool m_bRestartScheduled;
+	
+	protected float m_fResolutionMultiplier = 1;
 	
 	
 	override static void InitInfo(WorldSystemInfo outInfo)
@@ -96,7 +98,7 @@ class GC_TracingSystem : GameSystem
 		m_wCanvasWidget = CanvasWidget.Cast(GetGame().GetWorkspace().CreateWidgets("{F928661E727CC638}UI/Map/GC_LOSCanvas.layout", mapFrame));
 		m_wCanvasWidget.SetDrawCommands(m_aDrawCommands);
 		
-		m_bMapChanged = true;
+		m_bRestartScheduled = true;
 		
 		Enable(true);
 	}
@@ -132,19 +134,18 @@ class GC_TracingSystem : GameSystem
 		vector currentPan = m_MapEntity.GetCurrentPan();
 		float currentZoom = m_MapEntity.GetCurrentZoom();
 		
-		
 		bool mapChange = (m_vPreviousPan != currentPan) || (m_fPreviousZoom != currentZoom);
 		
 		if (mapChange)
 			UpdateVerticesBulk();
-		else if (m_bMapChanged)
+		else if (m_bRestartScheduled)
 			MaintainTree(true);
 		else if (!m_NodeQueue.IsEmpty())
 			MaintainTree(false);
 		
 		m_vPreviousPan = currentPan;
 		m_fPreviousZoom = currentZoom;
-		m_bMapChanged = mapChange;
+		m_bRestartScheduled = mapChange;
 
 		
 		m_wStatusWidget.SetText("Q: " + m_NodeQueue.Count() + " A: " + m_aActiveNodes.Count());
@@ -162,14 +163,57 @@ class GC_TracingSystem : GameSystem
 		const float offsetY = offset[2] + m_MapEntity.GetMapSizeY();
 	
 		const float zoom = m_MapEntity.GetCurrentZoom();
+		
+		vector frameMin, frameMax;
+		m_MapEntity.GetMapVisibleFrame(frameMin, frameMax);
+		const float frameX1 = frameMin[0];
+		const float frameX2 = frameMax[0];
+		const float frameY1 = frameMin[2];
+		const float frameY2 = frameMax[2];
 	
 		foreach (GC_QuadNode node : m_aActiveNodes)
 		{
+			if (frameX2 > node.m_fX1 && frameX1 < node.m_fX2 && frameY2 > node.m_fY1 && frameY1 < node.m_fY2 && !node.m_bTransparentColor) // is the overhead worth it? not sure
+			{
+				// simply not recalculating them is insufficient, because it means they get stuck on the edge of the screen, they have to be removed as well
+				
+				const float x1 = (node.m_fX1 - offsetX) * zoom + panX;
+				const float x2 = (node.m_fX2 - offsetX) * zoom + panX;
+				const float y1 = (offsetY - node.m_fY1) * zoom + panY;
+				const float y2 = (offsetY - node.m_fY2) * zoom + panY;
+		
+				node.m_DrawCommand.m_Vertices[0] = x2;
+				node.m_DrawCommand.m_Vertices[1] = y2;
+				node.m_DrawCommand.m_Vertices[2] = x1;
+				node.m_DrawCommand.m_Vertices[3] = y2;
+				node.m_DrawCommand.m_Vertices[4] = x1;
+				node.m_DrawCommand.m_Vertices[5] = y1;
+				node.m_DrawCommand.m_Vertices[6] = x2;
+				node.m_DrawCommand.m_Vertices[7] = y1;
+			}
+		}
+	}
+	
+	//! Still cheaper than 4 WorldToScreen calls :)
+	void UpdateVerticesSingle(GC_QuadNode node)
+	{
+		if (!node.m_bTransparentColor)
+		{
+			const vector pan = m_MapEntity.GetCurrentPan();
+			const float panX = pan[0];
+			const float panY = pan[1];
+		
+			const vector offset = m_MapEntity.Offset();
+			const float offsetX = offset[0];
+			const float offsetY = offset[2] + m_MapEntity.GetMapSizeY();
+		
+			const float zoom = m_MapEntity.GetCurrentZoom();
+			
 			const float x1 = (node.m_fX1 - offsetX) * zoom + panX;
 			const float x2 = (node.m_fX2 - offsetX) * zoom + panX;
 			const float y1 = (offsetY - node.m_fY1) * zoom + panY;
 			const float y2 = (offsetY - node.m_fY2) * zoom + panY;
-	
+		
 			node.m_DrawCommand.m_Vertices[0] = x2;
 			node.m_DrawCommand.m_Vertices[1] = y2;
 			node.m_DrawCommand.m_Vertices[2] = x1;
@@ -179,34 +223,6 @@ class GC_TracingSystem : GameSystem
 			node.m_DrawCommand.m_Vertices[6] = x2;
 			node.m_DrawCommand.m_Vertices[7] = y1;
 		}
-	}
-	
-	//! Still cheaper than 4 WorldToScreen calls :)
-	void UpdateVerticesSingle(GC_QuadNode node)
-	{
-		const vector pan = m_MapEntity.GetCurrentPan();
-		const float panX = pan[0];
-		const float panY = pan[1];
-	
-		const vector offset = m_MapEntity.Offset();
-		const float offsetX = offset[0];
-		const float offsetY = offset[2] + m_MapEntity.GetMapSizeY();
-	
-		const float zoom = m_MapEntity.GetCurrentZoom();
-		
-		const float x1 = (node.m_fX1 - offsetX) * zoom + panX;
-		const float x2 = (node.m_fX2 - offsetX) * zoom + panX;
-		const float y1 = (offsetY - node.m_fY1) * zoom + panY;
-		const float y2 = (offsetY - node.m_fY2) * zoom + panY;
-	
-		node.m_DrawCommand.m_Vertices[0] = x2;
-		node.m_DrawCommand.m_Vertices[1] = y2;
-		node.m_DrawCommand.m_Vertices[2] = x1;
-		node.m_DrawCommand.m_Vertices[3] = y2;
-		node.m_DrawCommand.m_Vertices[4] = x1;
-		node.m_DrawCommand.m_Vertices[5] = y1;
-		node.m_DrawCommand.m_Vertices[6] = x2;
-		node.m_DrawCommand.m_Vertices[7] = y1;
 	}
 		
 		// tree states:
@@ -233,6 +249,15 @@ class GC_TracingSystem : GameSystem
 		}
 	}
 	
+	void SetResolutionMultiplier(float multiplier)
+	{
+		if (multiplier != m_fResolutionMultiplier)
+		{
+			m_fResolutionMultiplier = multiplier;
+			m_bRestartScheduled = true;
+		}
+	}
+	
 	
 	//! Maintains the quad tree, removing obsolete nodes and adding required nodes.
 	protected void MaintainTree(bool restart)
@@ -256,7 +281,7 @@ class GC_TracingSystem : GameSystem
 		const float frameY1 = frameMin[2];
 		const float frameY2 = frameMax[2];
 		
-		const float targetMeters = Math.Max(1, (frameX2 - frameX1) / m_iQuadWidth); // e. g. 10m, no less than 1m
+		const float targetMeters = Math.Max(1, (frameX2 - frameX1) / (m_iQuadWidth * m_fResolutionMultiplier)); // e. g. 10m, no less than 1m
 		const int intendedLevel = Math.Round(Math.Log2(m_MapEntity.GetMapSizeX() / targetMeters));
 		// e. g. 4000m => 2000m => 1000m => 500m => 250m => 125m => 62.5m => 31.25m => 15.125m => 7m
 		
@@ -374,29 +399,37 @@ class GC_TracingSystem : GameSystem
 
 	void DeactivateNode(GC_QuadNode node)
 	{
-		int index = node.m_iActiveIndex;
-		if (index >= 0)
+		const int activeIndex = node.m_iActiveIndex;
+		if (activeIndex >= 0)
 		{
 			node.m_iActiveIndex = -1;
-			m_aDrawCommands.Remove(index);
-			m_aActiveNodes.Remove(index);
-			if (index < m_aActiveNodes.Count())
-				m_aActiveNodes[index].m_iActiveIndex = index;
+			m_aActiveNodes.Remove(activeIndex);
+			if (activeIndex < m_aActiveNodes.Count())
+				m_aActiveNodes[activeIndex].m_iActiveIndex = activeIndex;
+		}
+		
+		const int commandIndex = node.m_iCommandIndex;
+		if (commandIndex >= 0)
+		{
+			node.m_iCommandIndex = -1;
+			m_aDrawCommands.Remove(commandIndex);
+			if (commandIndex < m_aDrawCommands.Count())
+				m_aActiveNodes[commandIndex].m_iCommandIndex = commandIndex;
 		}
 	}
 
 	void ActivateNode(GC_QuadNode node)
 	{
-		if (node.m_iActiveIndex < 0) // this if might be redundant
+		if (node.m_iActiveIndex < 0) // this if is hopefully redundant 
 		{
-			m_aActiveNodes.Insert(node);
-			node.m_iActiveIndex = m_aActiveNodes.Count() - 1;
+			node.m_iActiveIndex = m_aActiveNodes.Insert(node);
 			
 			if (!node.m_DrawCommand)
 				node.CreateCommand();
 			node.UpdateColor(m_bShadingMode);
 			UpdateVerticesSingle(node);
-			m_aDrawCommands.Insert(node.m_DrawCommand);
+			
+			node.m_iCommandIndex = m_aDrawCommands.Insert(node.m_DrawCommand);
 		}
 	}
 	
@@ -422,6 +455,7 @@ class GC_TracingSystem : GameSystem
 	}
 	
 	/// performance improvement avenues:
+	
 	//  - vectorize additional operations / move them out of functions into loops
 	//  - a lot of performance cost comes from simply moving draw command vertices around
 	//		i could try not drawing clearly off-screen things, and i could try prioritizing removal of active nodes over addition to keep the amount low when moving the map
