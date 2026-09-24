@@ -29,7 +29,7 @@ class GC_QuadNode
 	
 	bool m_bTransparentColor;
 
-
+	//! Creates a new QuadNode and initiates traces
 	void GC_QuadNode(GC_QuadNode parent, vector fromPos, float toOffset, int level, float x1, float x2, float y1, float y2)
 	{
 		m_Parent = parent;
@@ -50,6 +50,7 @@ class GC_QuadNode
 		SingleTrace(world, fromPos, toOffset, m_fX2 - quarterX, m_fY1 + quarterY);
 	}
 	
+	//! Counts trace results
 	protected void SingleTrace(BaseWorld world, vector fromPos, float toOffset, float to1, float to2)
 	{
 		const vector toPos = Vector(to1, Math.Max(0, world.GetSurfaceY(to1, to2)) + toOffset, to2);
@@ -59,6 +60,7 @@ class GC_QuadNode
 			m_iEntsBlocked++;
 	}
 	
+	//! Performs a trace
 	static bool SightBlocked(BaseWorld world, vector fromPos, vector toPos, TraceFlags flags, EPhysicsLayerDefs layer, float tolerance = 1.0)
 	{
 		TraceParam trace = new TraceParam();
@@ -73,12 +75,14 @@ class GC_QuadNode
 		return (frac < (dist - tolerance) / dist);
 	}
 	
+	//! Creates the draw command
 	void CreateCommand()
 	{
 		m_DrawCommand = new PolygonDrawCommand();
 		m_DrawCommand.m_Vertices = {0, 0, 0, 0, 0, 0, 0, 0};
 	}
 	
+	//! Updates the draw command color and determines transparency
 	void UpdateColor(GC_ShadingMode mode)
 	{
 		const int anyBlocked = m_iTerrBlocked + m_iEntsBlocked;

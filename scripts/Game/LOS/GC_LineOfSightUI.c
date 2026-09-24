@@ -104,7 +104,7 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		toolButton.GetScreenPos(buttonPosX, buttonPosY);
 		toolButton.GetScreenSize(buttonSizeX, buttonSizeY);
 		
-		FrameSlot.SetPosY(m_wLineOfSightRoot, workspace.DPIUnscale(buttonPosY - buttonSizeY + 40));  // improve positioning
+		FrameSlot.SetPosY(m_wLineOfSightRoot, workspace.DPIUnscale(buttonPosY - buttonSizeY + 40));
 		FrameSlot.SetPosX(m_wLineOfSightRoot, workspace.DPIUnscale(buttonPosX + buttonSizeX));
 	}
 	

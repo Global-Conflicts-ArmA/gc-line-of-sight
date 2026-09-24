@@ -2,43 +2,53 @@ class GC_TracingSystem : GameSystem
 {
 	protected SCR_MapEntity m_MapEntity;
 	
+	//! Canvas the polygons are drawn onto
 	protected CanvasWidget m_wCanvasWidget;
 	
 	//! Root node of quad tree
 	protected ref GC_QuadNode m_QuadTree;
 	
-	//! Nodes that should have draw commands
+	//! Nodes eligible for drawing
 	protected ref array<GC_QuadNode> m_aActiveNodes = {};
 	
-	//! Array of draw commands, rebuilt frequently
+	//! Array of draw commands
 	protected ref array<ref CanvasWidgetCommand> m_aDrawCommands = {};
 
-	//! Node queue
+	//! Nodes still in queue for maintenance
 	protected ref GC_SimpleQueue<GC_QuadNode> m_NodeQueue = new GC_SimpleQueue<GC_QuadNode>();
 	
-	//! Shading mode
+	//! Determines colorization of nodes
 	protected GC_ShadingMode m_bShadingMode = GC_ShadingMode.Darken;
 	
 	//! Map item that highlights the current source position
 	protected ref MapItem m_SourceMarker;
 	
+	//! Debug info widget, visible only in Workbench
 	protected TextWidget m_wStatusWidget;
 
 	//! For how many ms the system may trace per frame. Increases CPU load but speeds up subdivision.
 	protected const int m_iTickBudget = 5;
 	
+	//! Target number for onscreen quads on the X axis
 	protected const int m_iQuadWidth = 150;
 	
+	//! Adjustable multiplier for quad width
+	protected float m_fResolutionMultiplier = 1;
+	
+	//! Source of trace
 	protected vector m_vSourcePos;
+	
+	//! Destination Y offset for trace
 	protected float m_fTargetOffset;
+	
+	//! Whether to discard current progress and restart maintenance of the tree
+	protected bool m_bRestartScheduled;
 	
 	protected vector m_vPreviousPan;
 	protected float m_fPreviousZoom;
-	protected bool m_bRestartScheduled;
-	
-	protected float m_fResolutionMultiplier = 1;
 	
 	
+	//! System setup
 	override static void InitInfo(WorldSystemInfo outInfo)
 	{
 		super.InitInfo(outInfo);
@@ -49,7 +59,7 @@ class GC_TracingSystem : GameSystem
 			.AddPoint(ESystemPoint.PostFrame);
 	}
 	
-	//! Global init, even if the tool is not active yet
+	//! System init
 	override void OnInit()
 	{
 		super.OnInit();
@@ -59,12 +69,13 @@ class GC_TracingSystem : GameSystem
 		m_MapEntity = SCR_MapEntity.GetMapInstance();
 	}
 	
-	//! Tool starts tracing
+	//! Activate tracing system
 	void ActivateTool(float worldX, float worldY, float sourceOffset, float targetOffset, TextWidget status)
 	{
 		DeactivateTool();
-		
-		//Print("GC LOS | Activating tracing system");
+#ifdef WORKBENCH
+		Print("GC LOS | Activating tracing system");
+#endif
 		
 		// Set positions
 		m_vSourcePos = Vector(worldX, Math.Max(0, GetGame().GetWorld().GetSurfaceY(worldX, worldY)) + sourceOffset, worldY);
@@ -103,10 +114,12 @@ class GC_TracingSystem : GameSystem
 		Enable(true);
 	}
 	
-	//! Tool stops tracing
+	//! Deactivate tracing system
 	void DeactivateTool()
 	{
-		// Print("GC LOS | Deactivating tracing system");
+#ifdef WORKBENCH
+		Print("GC LOS | Deactivating tracing system");
+#endif
 		
 		if (m_wCanvasWidget)
    			 m_wCanvasWidget.RemoveFromHierarchy();
@@ -139,9 +152,13 @@ class GC_TracingSystem : GameSystem
 		if (mapChange)
 			UpdateVerticesBulk();
 		else if (m_bRestartScheduled)
-			MaintainTree(true);
+		{
+			m_NodeQueue.Clear();
+			m_NodeQueue.Enqueue(m_QuadTree);
+			MaintainTree();
+		}
 		else if (!m_NodeQueue.IsEmpty())
-			MaintainTree(false);
+			MaintainTree();
 		
 		m_vPreviousPan = currentPan;
 		m_fPreviousZoom = currentZoom;
@@ -150,6 +167,7 @@ class GC_TracingSystem : GameSystem
 #ifdef WORKBENCH
 		m_wStatusWidget.SetText("Q: " + m_NodeQueue.Count() + " A: " + m_aActiveNodes.Count());
 #endif
+		
 	}
 	
 	//! Bulk process vertices instead of calling WorldToScreen individually
@@ -225,21 +243,8 @@ class GC_TracingSystem : GameSystem
 			node.m_DrawCommand.m_Vertices[7] = y1;
 		}
 	}
-		
-		// tree states:
-		// - no map change, queue empty => do nothing
-		// - no map change, queue not empty => keep working on it (and update new or all commands)
-		// - map change => clear node queue (?) then do maintenance, finally update all commands
-		
-		// should we clear the queue on map change? possibilities:
-		// - clear it on map change then immediately restart maintenance
-		// - clear it but wait until post change to restart maintenance
-		// - clear it only after map change
-		// this is also relevant when the queue is empty, when do we restart maintenance in general?
-		// - only after map move
-		// - on map move
 	
-	
+	//! Change the shading mode
 	void SetShadingMode(GC_ShadingMode mode)
 	{
 		if (m_bShadingMode != mode)
@@ -250,6 +255,7 @@ class GC_TracingSystem : GameSystem
 		}
 	}
 	
+	//! Change the resolution multiplier
 	void SetResolutionMultiplier(float multiplier)
 	{
 		if (multiplier != m_fResolutionMultiplier)
@@ -260,17 +266,9 @@ class GC_TracingSystem : GameSystem
 	}
 	
 	
-	//! Maintains the quad tree, removing obsolete nodes and adding required nodes.
-	protected void MaintainTree(bool restart)
+	//! Maintains the quad tree, removing+deactivating obsolete nodes and creating+activating new nodes
+	protected void MaintainTree()
 	{
-		
-		if (restart)
-		{
-			Print(restart);
-			m_NodeQueue.Clear();
-			m_NodeQueue.Enqueue(m_QuadTree);
-		}
-		
 		const int endTickCount = System.GetTickCount() + m_iTickBudget;
 		
 		int frameCost = 0;
@@ -282,9 +280,8 @@ class GC_TracingSystem : GameSystem
 		const float frameY1 = frameMin[2];
 		const float frameY2 = frameMax[2];
 		
-		const float targetMeters = Math.Max(1, (frameX2 - frameX1) / (m_iQuadWidth * m_fResolutionMultiplier)); // e. g. 10m, no less than 1m
+		const float targetMeters = Math.Max(1, (frameX2 - frameX1) / (m_iQuadWidth * m_fResolutionMultiplier));
 		const int intendedLevel = Math.Round(Math.Log2(m_MapEntity.GetMapSizeX() / targetMeters));
-		// e. g. 4000m => 2000m => 1000m => 500m => 250m => 125m => 62.5m => 31.25m => 15.125m => 7m
 		
 
 		while (endTickCount > System.GetTickCount())
@@ -298,10 +295,9 @@ class GC_TracingSystem : GameSystem
 			const bool intersection = BboxIntersects(frameX1, frameX2, frameY1, frameY2, node.m_fX1, node.m_fX2, node.m_fY1, node.m_fY2);
 			const bool hasChildren = node.m_Q1 != null;
 			
-			
 			if (levelReached || !intersection)
 			{
-				// null + deactivate children, make self active (BUT ONLY SELF EVEN HAD ACTIVE CHILDREN)
+				// null + deactivate children, make self active if deleted children were active
 				if (hasChildren)
 				{
 					if (DeactivateChildren(node))
@@ -393,6 +389,7 @@ class GC_TracingSystem : GameSystem
 		return hadActiveChildren;
 	}
 
+	//! Remove node from m_aActiveNodes and its draw command from m_aDrawCommands
 	void DeactivateNode(GC_QuadNode node)
 	{
 		const int index = node.m_iActiveIndex;
@@ -406,6 +403,7 @@ class GC_TracingSystem : GameSystem
 		}
 	}
 
+	//! Add node to m_aActiveNodes and its draw command to m_aDrawCommands
 	void ActivateNode(GC_QuadNode node)
 	{
 		if (node.m_iActiveIndex < 0) // this if is hopefully redundant 
@@ -447,5 +445,5 @@ class GC_TracingSystem : GameSystem
 	//  - zooming out from high res fast is currently still a problem. there needs to be a way to deactivate these nodes earlier.
 	
 	
-	// make marker smaller
+	// tweak marker appearance?
 }
