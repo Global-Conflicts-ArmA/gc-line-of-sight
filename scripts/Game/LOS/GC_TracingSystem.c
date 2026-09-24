@@ -47,6 +47,9 @@ class GC_TracingSystem : GameSystem
 	protected vector m_vPreviousPan;
 	protected float m_fPreviousZoom;
 	
+	//! Remembers previous intended level for difference checking
+	protected int m_iPreviousIntendedLevel;
+	
 	
 	//! System setup
 	override static void InitInfo(WorldSystemInfo outInfo)
@@ -73,9 +76,9 @@ class GC_TracingSystem : GameSystem
 	void ActivateTool(float worldX, float worldY, float sourceOffset, float targetOffset, TextWidget status)
 	{
 		DeactivateTool();
-#ifdef WORKBENCH
+		#ifdef WORKBENCH
 		Print("GC LOS | Activating tracing system");
-#endif
+		#endif
 		
 		// Set positions
 		m_vSourcePos = Vector(worldX, Math.Max(0, GetGame().GetWorld().GetSurfaceY(worldX, worldY)) + sourceOffset, worldY);
@@ -117,9 +120,9 @@ class GC_TracingSystem : GameSystem
 	//! Deactivate tracing system
 	void DeactivateTool()
 	{
-#ifdef WORKBENCH
+		#ifdef WORKBENCH
 		Print("GC LOS | Deactivating tracing system");
-#endif
+		#endif
 		
 		if (m_wCanvasWidget)
    			 m_wCanvasWidget.RemoveFromHierarchy();
@@ -144,29 +147,36 @@ class GC_TracingSystem : GameSystem
 	{
 		super.OnUpdate(point);
 		
-		vector currentPan = m_MapEntity.GetCurrentPan();
-		float currentZoom = m_MapEntity.GetCurrentZoom();
+		const vector currentPan = m_MapEntity.GetCurrentPan();
+		const float currentZoom = m_MapEntity.GetCurrentZoom();
+		vector frameMin, frameMax;
+		m_MapEntity.GetMapVisibleFrame(frameMin, frameMax);
 		
-		bool mapChange = (m_vPreviousPan != currentPan) || (m_fPreviousZoom != currentZoom);
+		const bool mapChange = (m_vPreviousPan != currentPan) || (m_fPreviousZoom != currentZoom);
+		const int intendedLevel = CalculateIntendedLevel(frameMin[0], frameMax[0]);
 		
 		if (mapChange)
+		{
+			TryLevelReduction(intendedLevel);
 			UpdateVerticesBulk();
+		}
 		else if (m_bRestartScheduled)
 		{
 			m_NodeQueue.Clear();
 			m_NodeQueue.Enqueue(m_QuadTree);
-			MaintainTree();
+			MaintainTree(intendedLevel);
 		}
 		else if (!m_NodeQueue.IsEmpty())
-			MaintainTree();
+			MaintainTree(intendedLevel);
 		
 		m_vPreviousPan = currentPan;
 		m_fPreviousZoom = currentZoom;
 		m_bRestartScheduled = mapChange;
+		m_iPreviousIntendedLevel = intendedLevel;
 
-#ifdef WORKBENCH
+		#ifdef WORKBENCH
 		m_wStatusWidget.SetText("Q: " + m_NodeQueue.Count() + " A: " + m_aActiveNodes.Count());
-#endif
+		#endif
 		
 	}
 	
@@ -192,7 +202,7 @@ class GC_TracingSystem : GameSystem
 		const float frameY2 = frameMax[2];
 		**/
 	
-		foreach (GC_QuadNode node : m_aActiveNodes)
+		foreach (GC_QuadNode node : m_aActiveNodes) // i guess i could also check level in here if it changed
 		{
 			if (!node.m_bTransparentColor)
 			{	
@@ -244,6 +254,38 @@ class GC_TracingSystem : GameSystem
 		}
 	}
 	
+	//! Check if level of active nodes needs to be reduced
+	protected void TryLevelReduction(int level)
+	{
+		if (m_iPreviousIntendedLevel == level)
+			return;
+		
+		const int intendedLevel = level; // make const
+		
+		if (m_iPreviousIntendedLevel > intendedLevel)
+		{
+			array<GC_QuadNode> parentsToActivate = {};
+			foreach (GC_QuadNode node : m_aActiveNodes)
+				if (node.m_iLevel > intendedLevel)
+					parentsToActivate.Insert(node.m_Parent);
+		
+			foreach (GC_QuadNode parent : parentsToActivate)
+			{
+				if (parent.m_Q1) // parent was inserted 4 times, only do this once. not super elegant but works.
+				{
+					if (DeactivateChildren(parent))
+						ActivateNode(parent);
+					parent.m_Q1 = null;
+					parent.m_Q2 = null;
+					parent.m_Q3 = null;
+					parent.m_Q4 = null;
+				}
+			}
+		}
+		
+		m_iPreviousIntendedLevel = intendedLevel;
+	}
+	
 	//! Change the shading mode
 	void SetShadingMode(GC_ShadingMode mode)
 	{
@@ -264,10 +306,16 @@ class GC_TracingSystem : GameSystem
 			m_bRestartScheduled = true;
 		}
 	}
+		
+	//! Determine intended tree depth within view
+	protected int CalculateIntendedLevel(int frameX1, int frameX2)
+	{
+		return Math.Round(Math.Log2(m_MapEntity.GetMapSizeX() / Math.Max(1, (frameX2 - frameX1) / (m_iQuadWidth * m_fResolutionMultiplier))));
+	}
 	
 	
 	//! Maintains the quad tree, removing+deactivating obsolete nodes and creating+activating new nodes
-	protected void MaintainTree()
+	protected void MaintainTree(int level)
 	{
 		const int endTickCount = System.GetTickCount() + m_iTickBudget;
 		
@@ -280,9 +328,7 @@ class GC_TracingSystem : GameSystem
 		const float frameY1 = frameMin[2];
 		const float frameY2 = frameMax[2];
 		
-		const float targetMeters = Math.Max(1, (frameX2 - frameX1) / (m_iQuadWidth * m_fResolutionMultiplier));
-		const int intendedLevel = Math.Round(Math.Log2(m_MapEntity.GetMapSizeX() / targetMeters));
-		
+		const int intendedLevel = level; // make const
 
 		while (endTickCount > System.GetTickCount())
 		{
