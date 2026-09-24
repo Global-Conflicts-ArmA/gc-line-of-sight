@@ -286,6 +286,7 @@ FrameWidgetClass {
                    Slot LayoutSlot "{6A6D44F579A8B088}" {
                     HorizontalAlign 1
                    }
+                   "Is Visible" 0
                    Text "Status"
                   }
                  }

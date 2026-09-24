@@ -64,7 +64,7 @@ class GC_TracingSystem : GameSystem
 	{
 		DeactivateTool();
 		
-		Print("Activating tracing system");
+		//Print("GC LOS | Activating tracing system");
 		
 		// Set positions
 		m_vSourcePos = Vector(worldX, Math.Max(0, GetGame().GetWorld().GetSurfaceY(worldX, worldY)) + sourceOffset, worldY);
@@ -77,9 +77,9 @@ class GC_TracingSystem : GameSystem
 		m_SourceMarker.SetBaseType(EMapDescriptorType.MDT_VIEWPOINT);
 		m_SourceMarker.SetImageDef("view-point");
 		MapDescriptorProps props = m_SourceMarker.GetProps();
-		props.SetFrontColor(Color.FromInt(Color.BLACK));
-		props.SetBackgroundColor(Color.FromInt(Color.BLACK));
-		props.SetIconSize(1, 0.25, 4);
+		props.SetFrontColor(Color.FromInt(0xC000000));
+		props.SetBackgroundColor(Color.FromInt(0xC0000000));
+		props.SetIconSize(1, 0.1, 2);
 		props.Activate(true);
 		m_SourceMarker.SetProps(props);
 		
@@ -106,7 +106,7 @@ class GC_TracingSystem : GameSystem
 	//! Tool stops tracing
 	void DeactivateTool()
 	{
-		Print("Deactivating tracing system");
+		// Print("GC LOS | Deactivating tracing system");
 		
 		if (m_wCanvasWidget)
    			 m_wCanvasWidget.RemoveFromHierarchy();
@@ -147,8 +147,9 @@ class GC_TracingSystem : GameSystem
 		m_fPreviousZoom = currentZoom;
 		m_bRestartScheduled = mapChange;
 
-		
+#ifdef WORKBENCH
 		m_wStatusWidget.SetText("Q: " + m_NodeQueue.Count() + " A: " + m_aActiveNodes.Count());
+#endif
 	}
 	
 	//! Bulk process vertices instead of calling WorldToScreen individually
@@ -164,12 +165,14 @@ class GC_TracingSystem : GameSystem
 	
 		const float zoom = m_MapEntity.GetCurrentZoom();
 		
+		/**
 		vector frameMin, frameMax;
 		m_MapEntity.GetMapVisibleFrame(frameMin, frameMax);
 		const float frameX1 = frameMin[0];
 		const float frameX2 = frameMax[0];
 		const float frameY1 = frameMin[2];
 		const float frameY2 = frameMax[2];
+		**/
 	
 		foreach (GC_QuadNode node : m_aActiveNodes)
 		{
@@ -440,21 +443,8 @@ class GC_TracingSystem : GameSystem
 	
 	/// performance improvement avenues:
 	
-	//  - vectorize additional operations / move them out of functions into loops
-	//  - a lot of performance cost comes from simply moving draw command vertices around
-	//		i could try not drawing clearly off-screen things, and i could try prioritizing removal of active nodes over addition to keep the amount low when moving the map
-	//		ccould also consider some way to just not process vertices of invisible nodes (i. e. 0 alpha)
-	//  - zooming out from high res fast is currently still a big problem. there needs to be a way to deactivate these nodes earlier.
-	
-	
-	// okay so
-	// not drawing offscreen or transparent things requires adding some mode for it, other than active.
-	// maybe a "visible" toggle on the node, which removes all vertices instead of calculating them.
-	// if i wanted to remove the draw command entirely, i could no longer treat it as having the same index as in the active array, but i could just add another field in the node for it
-	// reasons for nodes to be active but invisible: currently offscreen, transparent color / hidden
-	// so node invisibility would be always determined when moving the map (vertex calculation), and also whenever the color is updated
-	// node invisibility would be taken into account by updatevertices, which should only update if the node isn't invisible
-	// also need to think about reinserting e. g. when hide status changes
+	//  - perhaps vectorize additional operations / move them out of functions into loops
+	//  - zooming out from high res fast is currently still a problem. there needs to be a way to deactivate these nodes earlier.
 	
 	
 	// make marker smaller

@@ -94,7 +94,16 @@ class GC_QuadNode
 		else
 			m_DrawCommand.m_iColor = ARGBF(0, 0, 0, 0);
 		
-		m_bTransparentColor = (m_DrawCommand.m_iColor >> 24) & 0xFF == 0; // alpha is 0
-		// maybe instead remove all vertices?
+		const bool transparent = (m_DrawCommand.m_iColor >> 24) & 0xFF == 0; // alpha is 0
+		if (transparent && !m_bTransparentColor)
+		{
+			m_DrawCommand.m_Vertices.Clear();
+			m_bTransparentColor = true;
+		}
+		else if (!transparent && m_bTransparentColor)
+		{
+			m_DrawCommand.m_Vertices.Resize(8);
+			m_bTransparentColor = false;
+		}
 	}
 }

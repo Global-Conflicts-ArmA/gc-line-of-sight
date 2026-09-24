@@ -172,6 +172,10 @@ class GC_LineOfSightUI : SCR_MapUIBaseComponent
 		
 		SCR_SliderComponent sliderComp = SCR_SliderComponent.Cast(m_wResolutionSlider.FindHandler(SCR_SliderComponent));
 		sliderComp.m_OnChanged.Insert(ResolutionSliderChanged);
+		
+#ifdef WORKBENCH
+		m_wStatusText.SetVisible(true);
+#endif
 	}
 	
 	protected void PositionButtonClicked()
