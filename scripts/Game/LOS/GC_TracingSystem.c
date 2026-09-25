@@ -11,17 +11,17 @@ class GC_TracingSystem : GameSystem
 	//! Nodes eligible for drawing
 	protected ref array<GC_QuadNode> m_aActiveNodes = {};
 	
-	//! Array of draw commands
-	protected ref array<ref CanvasWidgetCommand> m_aDrawCommands = {};
-
+	//! Array of draw commands, first position reserved for source marker
+	protected ref array<ref CanvasWidgetCommand> m_aDrawCommands = { null };
+	
+	//! Highlights current source position. Needs to be moved and updated.
+	protected ref ImageDrawCommand m_SourceDrawing;
+	
 	//! Nodes still in queue for maintenance
 	protected ref GC_SimpleQueue<GC_QuadNode> m_NodeQueue = new GC_SimpleQueue<GC_QuadNode>();
 	
 	//! Determines colorization of nodes
 	protected GC_ShadingMode m_bShadingMode = GC_ShadingMode.Darken;
-	
-	//! Map item that highlights the current source position
-	protected ref MapItem m_SourceMarker;
 	
 	//! Debug info widget, visible only in Workbench
 	protected TextWidget m_wStatusWidget;
@@ -49,6 +49,8 @@ class GC_TracingSystem : GameSystem
 	
 	//! Remembers previous intended level for difference checking
 	protected int m_iPreviousIntendedLevel;
+	
+	protected int m_iSourceDrawingSize;
 	
 	
 	//! System setup
@@ -85,18 +87,6 @@ class GC_TracingSystem : GameSystem
 		m_fTargetOffset = targetOffset;
 		m_wStatusWidget = status;
 		
-		// Source map item
-		m_SourceMarker = m_MapEntity.CreateCustomMapItem();
-		m_SourceMarker.SetPos(worldX, worldY);
-		m_SourceMarker.SetBaseType(EMapDescriptorType.MDT_VIEWPOINT);
-		m_SourceMarker.SetImageDef("view-point");
-		MapDescriptorProps props = m_SourceMarker.GetProps();
-		props.SetFrontColor(Color.FromInt(0xC000000));
-		props.SetBackgroundColor(Color.FromInt(0xC0000000));
-		props.SetIconSize(1, 0.1, 2);
-		props.Activate(true);
-		m_SourceMarker.SetProps(props);
-		
 		// Init quadtree
 		vector offset = m_MapEntity.Offset();
 		vector size = m_MapEntity.Size();
@@ -114,7 +104,26 @@ class GC_TracingSystem : GameSystem
 		
 		m_bRestartScheduled = true;
 		
+		CreateSourceDrawing();
+		
 		Enable(true);
+	}
+	
+	protected void CreateSourceDrawing()
+	{
+		m_iSourceDrawingSize = GetGame().GetWorkspace().GetWidth() / 100;
+		m_SourceDrawing = m_wCanvasWidget.CreateCommandFromImageSet("{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset", "radialCircle", Vector(m_iSourceDrawingSize*2, m_iSourceDrawingSize*2, 0));
+		m_SourceDrawing.m_iFlags |= WidgetFlags.BLEND;
+		m_SourceDrawing.m_iColor = Color.ORANGE;
+		m_aDrawCommands[0] = m_SourceDrawing;
+		int x, y;
+		m_MapEntity.WorldToScreen(m_vSourcePos[0], m_vSourcePos[2], x, y, true);
+		m_SourceDrawing.m_Position = Vector(x - m_iSourceDrawingSize, y - m_iSourceDrawingSize, 0);
+	}
+	
+	protected void RemoveSourceDrawing()
+	{
+		m_aDrawCommands[0] = null;
 	}
 	
 	//! Deactivate tracing system
@@ -132,12 +141,11 @@ class GC_TracingSystem : GameSystem
 		m_aActiveNodes.Clear();
 		m_wCanvasWidget = null;
 		m_aDrawCommands.Clear();
+		m_aDrawCommands.Insert(null);
+		m_SourceDrawing = null;
 		
 		m_vPreviousPan = vector.Zero;
 		m_fPreviousZoom = 0;
-		
-		if (m_SourceMarker)
-			m_SourceMarker.Recycle();
 		
 		Enable(false);
 	}
@@ -192,17 +200,8 @@ class GC_TracingSystem : GameSystem
 		const float offsetY = offset[2] + m_MapEntity.GetMapSizeY();
 	
 		const float zoom = m_MapEntity.GetCurrentZoom();
-		
-		/**
-		vector frameMin, frameMax;
-		m_MapEntity.GetMapVisibleFrame(frameMin, frameMax);
-		const float frameX1 = frameMin[0];
-		const float frameX2 = frameMax[0];
-		const float frameY1 = frameMin[2];
-		const float frameY2 = frameMax[2];
-		**/
 	
-		foreach (GC_QuadNode node : m_aActiveNodes) // i guess i could also check level in here if it changed
+		foreach (GC_QuadNode node : m_aActiveNodes)
 		{
 			if (!node.m_bTransparentColor)
 			{	
@@ -211,17 +210,27 @@ class GC_TracingSystem : GameSystem
 				const float y1 = (offsetY - node.m_fY1) * zoom + panY;
 				const float y2 = (offsetY - node.m_fY2) * zoom + panY;
 		
-				node.m_DrawCommand.m_Vertices[0] = x2;
-				node.m_DrawCommand.m_Vertices[1] = y2;
-				node.m_DrawCommand.m_Vertices[2] = x1;
-				node.m_DrawCommand.m_Vertices[3] = y2;
-				node.m_DrawCommand.m_Vertices[4] = x1;
-				node.m_DrawCommand.m_Vertices[5] = y1;
-				node.m_DrawCommand.m_Vertices[6] = x2;
-				node.m_DrawCommand.m_Vertices[7] = y1;
+				array<float> verts = node.m_DrawCommand.m_Vertices;
+				verts[0] = x2;
+				verts[1] = y2;
+				verts[2] = x1;
+				verts[3] = y2;
+				verts[4] = x1;
+				verts[5] = y1;
+				verts[6] = x2;
+				verts[7] = y1;
 			}
 		}
+		
+		if (m_SourceDrawing)
+		{
+			m_SourceDrawing.m_Position[0] = (m_vSourcePos[0] - offsetX) * zoom + panX - m_iSourceDrawingSize;
+			m_SourceDrawing.m_Position[1] = (offsetY - m_vSourcePos[2]) * zoom + panY - m_iSourceDrawingSize;
+		}
 	}
+	// i just realized i can probably figure out one linear transformation and apply it to all vertices. but it's not a significant impact at this point.
+	// if zoom did not change, the transformation is even just a simple addition, i. e. i can figure out a const x+y offset then simply do +=
+	// problem is that you could lose accuracy eventually, so it would be problematic to do this all the time. will just leave it as is for now.
 	
 	//! Still cheaper than 4 WorldToScreen calls :)
 	void UpdateVerticesSingle(GC_QuadNode node)
@@ -243,14 +252,15 @@ class GC_TracingSystem : GameSystem
 			const float y1 = (offsetY - node.m_fY1) * zoom + panY;
 			const float y2 = (offsetY - node.m_fY2) * zoom + panY;
 		
-			node.m_DrawCommand.m_Vertices[0] = x2;
-			node.m_DrawCommand.m_Vertices[1] = y2;
-			node.m_DrawCommand.m_Vertices[2] = x1;
-			node.m_DrawCommand.m_Vertices[3] = y2;
-			node.m_DrawCommand.m_Vertices[4] = x1;
-			node.m_DrawCommand.m_Vertices[5] = y1;
-			node.m_DrawCommand.m_Vertices[6] = x2;
-			node.m_DrawCommand.m_Vertices[7] = y1;
+			array<float> verts = node.m_DrawCommand.m_Vertices;
+			verts[0] = x2;
+			verts[1] = y2;
+			verts[2] = x1;
+			verts[3] = y2;
+			verts[4] = x1;
+			verts[5] = y1;
+			verts[6] = x2;
+			verts[7] = y1;
 		}
 	}
 	
@@ -319,8 +329,6 @@ class GC_TracingSystem : GameSystem
 	{
 		const int endTickCount = System.GetTickCount() + m_iTickBudget;
 		
-		int frameCost = 0;
-		
 		vector frameMin, frameMax;
 		m_MapEntity.GetMapVisibleFrame(frameMin, frameMax);
 		const float frameX1 = frameMin[0];
@@ -336,10 +344,9 @@ class GC_TracingSystem : GameSystem
 			if (!node)
 				break; // done
 			
-			frameCost += 1;
 			const bool levelReached = node.m_iLevel >= intendedLevel;
 			const bool intersection = BboxIntersects(frameX1, frameX2, frameY1, frameY2, node.m_fX1, node.m_fX2, node.m_fY1, node.m_fY2);
-			const bool hasChildren = node.m_Q1 != null;
+			const bool hasChildren = node.m_Q1;
 			
 			if (levelReached || !intersection)
 			{
@@ -443,7 +450,7 @@ class GC_TracingSystem : GameSystem
 		{
 			node.m_iActiveIndex = -1;
 			m_aActiveNodes.Remove(index);
-			m_aDrawCommands.Remove(index);
+			m_aDrawCommands.Remove(index + 1);
 			if (index < m_aActiveNodes.Count())
 				m_aActiveNodes[index].m_iActiveIndex = index;
 		}
@@ -484,12 +491,4 @@ class GC_TracingSystem : GameSystem
 		if (parent.m_Q4 != node)
 			ActivateNode(parent.m_Q4);
 	}
-	
-	/// performance improvement avenues:
-	
-	//  - perhaps vectorize additional operations / move them out of functions into loops
-	//  - zooming out from high res fast is currently still a problem. there needs to be a way to deactivate these nodes earlier.
-	
-	
-	// tweak marker appearance?
 }

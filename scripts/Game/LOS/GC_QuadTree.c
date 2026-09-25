@@ -69,10 +69,8 @@ class GC_QuadNode
 		trace.Flags = flags;
 		trace.TargetLayers = layer;
 		
-		float frac = world.TraceMove(trace);
-		float dist = vector.Distance(trace.Start, trace.End);
-		
-		return (frac < (dist - tolerance) / dist);
+		const float dist = vector.Distance(trace.Start, trace.End);
+		return (world.TraceMove(trace) < (dist - tolerance) / dist);
 	}
 	
 	//! Creates the draw command
