@@ -121,11 +121,6 @@ class GC_TracingSystem : GameSystem
 		m_SourceDrawing.m_Position = Vector(x - m_iSourceDrawingSize, y - m_iSourceDrawingSize, 0);
 	}
 	
-	protected void RemoveSourceDrawing()
-	{
-		m_aDrawCommands[0] = null;
-	}
-	
 	//! Deactivate tracing system
 	void DeactivateTool()
 	{
